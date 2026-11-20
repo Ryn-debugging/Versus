@@ -31,5 +31,11 @@ const output = template
 const outPath = path.join(rootDir, 'index.html');
 fs.writeFileSync(outPath, output, 'utf8');
 
+// Sinkronkan juga ke assets WebView Android APK
+const androidWwwDir = path.join(rootDir, 'app/src/main/assets/www');
+fs.mkdirSync(androidWwwDir, { recursive: true });
+const androidOutPath = path.join(androidWwwDir, 'index.html');
+fs.writeFileSync(androidOutPath, output, 'utf8');
+
 const sizeKb = (Buffer.byteLength(output, 'utf8') / 1024).toFixed(1);
-console.log(`Built ${outPath} (${sizeKb} KB, ${output.split('\n').length} lines)`);
+console.log(`Built ${outPath} & ${androidOutPath} (${sizeKb} KB, ${output.split('\n').length} lines)`);

@@ -1,0 +1,51 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.ryn.kesatriavszombie'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.ryn.kesatriavszombie"
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        release {
+            storeFile file("release.jks")
+            storePassword "kesatriavszombie2026"
+            keyAlias "kesatriavszombie"
+            keyPassword "kesatriavszombie2026"
+            enableV1Signing true
+            enableV2Signing true
+            enableV3Signing true
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.webkit:webkit:1.10.0'
+}

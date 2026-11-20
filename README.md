@@ -1,16 +1,31 @@
 # ⚔️ Kesatria Cahaya vs Zombie
 
-**Kesatria Cahaya vs Zombie** adalah game **2D Action Platformer** berbasis **HTML5 Canvas** yang 100% *self-contained* & offline (tanpa ketergantungan CDN/internet), dengan dukungan penuh **Keyboard (PC/Laptop)** dan **Layar Sentuh Multi-Touch (HP/Tablet)**.
+**Kesatria Cahaya vs Zombie** adalah game **2D Action Platformer** berbasis **HTML5 Canvas** yang 100% *self-contained* & offline, sekaligus dibungkus menjadi aplikasi **Android APK native (Signed Release APK)** dengan mode layar penuh (*Immersive Landscape*), kontrol layar sentuh multi-touch, dan efek audio sintetis tanpa ketergantungan internet.
 
 ---
 
-## 🎮 Cara Bermain
+## 📱 Download APK Android
 
-Buka langsung file [`index.html`](index.html) di browser modern apa pun (Chrome, Edge, Firefox, Safari, maupun WebView Android) — tidak perlu koneksi internet atau instalasi server.
+Unduh file APK versi terbaru (**v1.0.0 - Signed Release APK**) melalui tautan berikut:
 
-### Kontrol Permainan
+👉 **[Download KesatriaVsZombie.apk (v1.0.0)](https://github.com/Ryn-debugging/Versus/releases/latest/download/KesatriaVsZombie.apk)**
 
-| Aksi | Keyboard (PC) | Layar Sentuh (HP/Tablet) |
+atau lihat semua rilis di halaman **[GitHub Releases](https://github.com/Ryn-debugging/Versus/releases/latest)** dan build otomatis di tab **Actions**.
+
+### 📲 Cara Install di HP Android
+1. Unduh file **`KesatriaVsZombie.apk`** melalui browser.
+2. Buka **Pengelola File / File Manager** → folder **Download**, lalu ketuk **`KesatriaVsZombie.apk`**.
+3. Jika diminta izin keamanan, aktifkan **"Izinkan dari sumber ini"** (*Install from Unknown Sources*).
+4. Jika muncul peringatan Google Play Protect, ketuk **"Detail selengkapnya"** → **"Tetap instal"**.
+5. Buka **Kesatria vs Zombie** dan mainkan **100% offline**!
+
+> Atau langsung buka [`index.html`](index.html) di browser PC/HP mana pun tanpa server!
+
+---
+
+## 🎮 Kontrol Permainan
+
+| Aksi | Keyboard (PC) | Layar Sentuh (Android) |
 |---|---|---|
 | **Gerak Kiri / Kanan** | `A` / `D` atau `←` / `→` | D-Pad `◀` / `▶` (geser jari mulus) |
 | **Lompat / Double Jump** | `W` / `↑` | Tombol `LOMPAT` + indikator *2 Pip* |
@@ -44,34 +59,28 @@ Buka langsung file [`index.html`](index.html) di browser modern apa pun (Chrome,
   - Radar 2D *real-time* di bawah layar (posisi Kesatria, Api Unggun Checkpoint, Peti Relik, Zombie/Boss, dan Gerbang Suci).
   - 14 pola musik gothic/medieval sintetis + 22 efek suara 100% offline via Web Audio API.
   - Animasi 2D **CG Ending: Fajar Kerajaan Cahaya** + fitur *Putar CG Ending*, *Pilih Stage Terbuka Berhalaman*, dan *Lanjut Stage Terakhir* (`localStorage`).
+  - Kompatibel dengan **Android 5.0 (Lollipop) hingga Android 15** (`minSdk 21`, signed v1+v2+v3).
 
 ---
 
-## 🛠️ Struktur & Pengembangan
+## 🚀 Build APK Sendiri (Lokal)
 
-```text
-Versus/
-├── index.html          # Versi final single-file 100% self-contained & offline
-├── src/
-│   ├── template.html   # Struktur HTML & ikon SVG inline
-│   ├── styles.css      # Design system Vanilla CSS + responsif mobile 800x360
-│   └── js/
-│       ├── audio.js    # Mesin audio sintetis Web Audio (14 BGM + 22 SFX)
-│       ├── stages.js   # 30 Stage, 15 Bioma, & 9 Boss Mayat Hidup
-│       ├── player.js   # Sir Aldric (Kesatria Cahaya) & mekanik tempur
-│       ├── enemies.js  # 7 tipe Zombie & AI Boss Multi-Fase
-│       ├── renderer.js # Renderer 2D parallax, cuaca, radar, & CG Ending
-│       └── main.js     # Fixed-timestep loop, Pandai Besi, Save, & Touch/Keyboard
-└── scripts/
-    ├── build.mjs       # Bundler zero-dependency ke index.html
-    ├── test-logic.mjs  # Validator sintaks, jangkauan lompatan, & 30 stage
-    └── test-browser.mjs# Verifikasi E2E & visual Headless Chromium
-```
-
-### Build & Verifikasi Lokal
-
-```bash
-node scripts/build.mjs
-node scripts/test-logic.mjs
-node scripts/test-browser.mjs
-```
+1. Pastikan telah terinstall **Node.js 20+**, **JDK 17**, dan **Android SDK (Platform 34, Build-Tools 34.0.0)**.
+2. Clone repository:
+   ```bash
+   git clone https://github.com/Ryn-debugging/Versus.git
+   cd Versus
+   ```
+3. Build & validasi bundle HTML5 + sinkronkan aset WebView:
+   ```bash
+   node scripts/build.mjs
+   node scripts/test-logic.mjs
+   ```
+4. Jalankan Gradle wrapper untuk membangun Signed Release APK:
+   ```bash
+   ./gradlew assembleRelease
+   ```
+5. File APK akan berada di:
+   ```
+   app/build/outputs/apk/release/app-release.apk
+   ```
