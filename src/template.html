@@ -3,463 +3,364 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="description" content="Kesatria Cahaya vs Zombie — Game 2D Action Platformer HTML5 Canvas offline dengan 30 Stage, 9 Boss Mayat Hidup, Boss Rush, Perisai Tangkis Sempurna, Tombak Suci, dan 4 Relik Pusaka.">
-    <title>Kesatria Cahaya vs Zombie — 2D Action Platformer</title>
+    <meta name="description" content="Kesatria Benteng: Perang Zombie — Game 2D Castle Siege & Horde Action RPG offline. Pertahankan Gerbang Benteng bersama Pemanah Kerajaan, Perisai Tangkis Balas, Palu Boomerang Suci, Kartu Berkah Roguelike, & Serbuan Kavaleri Fajar!">
+    <title>Kesatria Benteng: Perang Zombie — 2D Castle Siege Action RPG</title>
     <style>
 /*__INLINE_CSS__*/
     </style>
 </head>
 <body>
 <main id="game-wrapper">
-    <canvas id="game-canvas" width="1280" height="720" aria-label="Kanvas Permainan Kesatria Cahaya vs Zombie"></canvas>
+    <canvas id="game-canvas" width="1280" height="720" aria-label="Medan Perang Kesatria Benteng vs Zombie"></canvas>
 
     <!-- ================================================================
-         HUD ATAS (STATUS KESATRIA, STAGE, EMAS, & KONTROL)
+         HUD MEDAN PERANG (KESATRIA + GERBANG BENTENG + HORDE GAUGE)
          ================================================================ -->
     <header id="hud">
-        <div id="hud-top-row">
-            <!-- Status Kesatria -->
-            <div id="hud-hero-card" class="iron-panel--hud">
-                <div id="hud-avatar" title="Sir Aldric — Kesatria Cahaya">
+        <div id="hud-row">
+            <!-- Status Kesatria & Gerbang Benteng -->
+            <div id="hud-left" class="hud-strip">
+                <div id="hud-crest" title="Sir Aldric — Penjaga Benteng Fajar">
                     <svg class="svg-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M12 2L4 5v6c0 5.5 3.4 9.7 8 11 4.6-1.3 8-5.5 8-11V5l-8-3z"/>
                         <path d="M12 7v10M8 11h8"/>
                     </svg>
-                    <span id="hud-armor-badge">Lv.1</span>
+                    <span id="hud-tier-tag">Lv.1</span>
                 </div>
-                <div id="hud-stats-col">
-                    <div class="hud-bar-row">
-                        <div class="hud-bar-label">
-                            <span>DARAH (HP)</span>
-                            <strong id="hud-hp-text">120 / 120</strong>
+                <div class="bars-stack">
+                    <div class="bar-item">
+                        <div class="bar-meta">
+                            <span>KESATRIA</span>
+                            <strong id="hud-hp-val">150 / 150</strong>
                         </div>
-                        <div class="hud-bar-track">
-                            <div id="hp-bar-fill"></div>
-                        </div>
+                        <div class="bar-track"><div id="hp-fill"></div></div>
                     </div>
-                    <div class="hud-bar-row">
-                        <div class="hud-bar-label">
-                            <span id="hud-fury-label">SEMANGAT SUCI</span>
-                            <strong id="hud-fury-text">0%</strong>
+                    <div class="bar-item">
+                        <div class="bar-meta">
+                            <span>GERBANG BENTENG</span>
+                            <strong id="hud-gate-val">500 / 500</strong>
                         </div>
-                        <div class="hud-bar-track hud-bar-track--sm">
-                            <div id="fury-bar-fill" data-ready="0"></div>
+                        <div class="bar-track"><div id="gate-fill"></div></div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-meta">
+                            <span>KAVALERI FAJAR</span>
+                            <strong id="hud-valor-val">0%</strong>
                         </div>
+                        <div class="bar-track bar-track--thin"><div id="valor-fill" data-ready="0"></div></div>
                     </div>
                 </div>
             </div>
 
-            <!-- Info Stage & Jumlah Zombie -->
-            <div id="hud-stage-card" class="iron-panel--hud">
-                <div id="hud-stage-name">STAGE 1 • PEMAKAMAN BERKABUT</div>
-                <div id="hud-stage-meta">
-                    <span id="hud-enemy-count">Zombie: 9</span>
-                    <span id="hud-combo-pill" class="hidden">0x COMBO</span>
+            <!-- Info Malam, Sisa Gerombolan, & Pasukan Sekutu -->
+            <div id="hud-center" class="hud-strip">
+                <div id="hud-night-title">MALAM 1 • KABUT PEMAKAMAN</div>
+                <div id="hud-horde-row">
+                    <span id="hud-remaining">Mayat Hidup: 14</span>
+                    <span id="hud-allies-tag">Pemanah: 1</span>
+                    <span id="hud-combo-badge" class="hidden">0x</span>
+                </div>
+                <div id="horde-progress-track">
+                    <div id="horde-progress-fill"></div>
                 </div>
             </div>
 
-            <!-- Emas & Tombol Aksi HUD -->
-            <div id="hud-right-col">
-                <div id="hud-gold-pill" class="iron-panel--hud" title="Keping Emas Suci">
-                    <svg class="svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="#f6cc68" stroke="#9c6b1c" stroke-width="1.6" aria-hidden="true">
-                        <circle cx="12" cy="12" r="9"/>
-                        <circle cx="12" cy="12" r="5" fill="none" stroke="#fffbeb" stroke-width="1.4"/>
-                    </svg>
-                    <span id="hud-gold">0</span>
+            <!-- Koin Emas & Tombol Jeda / Audio -->
+            <div id="hud-right">
+                <div id="hud-gold-box" class="hud-strip" title="Emas Perbendaharaan Benteng">
+                    <svg class="svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="#f8d274" stroke="#925d15" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5" fill="none" stroke="#fffbeb" stroke-width="1.4"/></svg>
+                    <span id="hud-gold-val">0</span>
                 </div>
-                <button id="btn-open-shop" class="hud-btn" type="button" title="Buka Pandai Besi / Tempaan (B)">
-                    <svg class="svg-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-                    </svg>
-                    <span>TEMPA</span>
-                    <span class="pc-only" style="opacity:0.7;font-size:10px;">[B]</span>
+                <button id="btn-mute" class="hud-btn hud-icon-btn" type="button" title="Suara (M)" aria-label="Suara Hidup atau Mati">
+                    <svg id="icon-sound-on" class="svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                    <svg id="icon-sound-off" class="svg-icon hidden" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
                 </button>
-                <button id="btn-mute" class="hud-btn hud-icon-btn" type="button" title="Suara Hidup / Mati (M)" aria-label="Suara Hidup atau Mati">
-                    <svg id="icon-sound-on" class="svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-                    </svg>
-                    <svg id="icon-sound-off" class="svg-icon hidden" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                        <line x1="23" y1="9" x2="17" y2="15"/>
-                        <line x1="17" y1="9" x2="23" y2="15"/>
-                    </svg>
-                </button>
-                <button id="btn-pause" class="hud-btn hud-icon-btn" type="button" title="Jeda Permainan (P / Esc)" aria-label="Jeda Permainan">
-                    <svg class="svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                        <rect x="6" y="4" width="4" height="16" rx="1"/>
-                        <rect x="14" y="4" width="4" height="16" rx="1"/>
-                    </svg>
+                <button id="btn-pause" class="hud-btn hud-icon-btn" type="button" title="Jeda (P / Esc)" aria-label="Jeda Permainan">
+                    <svg class="svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
                 </button>
             </div>
         </div>
 
-        <!-- Bar HP Boss (Aktif saat menghadapi Penguasa Mayat Hidup) -->
-        <div id="boss-hud" class="iron-panel--hud hidden">
-            <div id="boss-hud-head">
-                <div id="boss-name">
-                    <svg class="svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/>
-                        <path d="M8 20v2h8v-2"/>
-                        <path d="M12.5 17l-.5-1-.5 1h1z"/>
-                        <path d="M16 20a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20"/>
-                    </svg>
-                    <span id="boss-name-text">ALGOJO WABAH MORGHUL</span>
-                    <span id="boss-phase-tag">FASE I</span>
+        <!-- Chip Kartu Berkah Aktif -->
+        <div id="hud-blessings-strip"></div>
+
+        <!-- Boss Health Bar -->
+        <div id="boss-hud" class="hud-strip hidden">
+            <div id="boss-head">
+                <div id="boss-title-wrap">
+                    <svg class="svg-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2"><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><path d="M8 20v2h8v-2"/><path d="M16 20a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20"/></svg>
+                    <span id="boss-name-text">ALGOJO PENDOBRAK MORGHUL</span>
+                    <span id="boss-phase-badge">FASE I</span>
                 </div>
-                <span id="boss-hp-text">500 / 500</span>
+                <span id="boss-hp-label">900 / 900</span>
             </div>
-            <div id="boss-hp-track">
-                <div id="boss-hp-fill"></div>
-            </div>
+            <div id="boss-hp-track"><div id="boss-hp-fill"></div></div>
         </div>
     </header>
 
-    <!-- ================================================================
-         BANNER PENGUMUMAN STAGE
-         ================================================================ -->
-    <div id="stage-banner" role="status" aria-live="polite">
-        <div id="banner-sub">STAGE 1 • BABAK I</div>
-        <h2 id="banner-title">Pemakaman Berkabut</h2>
-        <p id="banner-desc">Tumpas gerombolan zombie yang bangkit dari kubur dan capai Gerbang Suci!</p>
+    <!-- Petunjuk Tombol Cepat PC -->
+    <div id="desktop-hints" aria-hidden="true">
+        <span><kbd>A/D</kbd> Gerak</span>
+        <span><kbd>W</kbd> Lompat</span>
+        <span><kbd>J</kbd> Tebas / Slam</span>
+        <span><kbd>K</kbd> Tahan Perisai &amp; Parry</span>
+        <span><kbd>L</kbd> Palu Boomerang</span>
+        <span><kbd>Q</kbd> Kavaleri Fajar</span>
+    </div>
+
+    <!-- Banner Pengumuman Gelombang -->
+    <div id="wave-banner" role="status" aria-live="polite">
+        <div id="banner-eyebrow">MALAM 1 • PENGEPUNGAN DIMULAI</div>
+        <h2 id="banner-title">Kabut Pemakaman</h2>
+        <p id="banner-desc">Pertahankan Gerbang Benteng! Tahan Perisai untuk menangkis &amp; lempar Palu Boomerang!</p>
     </div>
 
     <!-- ================================================================
-         KONTROL LAYAR SENTUH (ERGONOMIS BEBAS LAG)
+         KONTROL LAYAR SENTUH (TERMASUK HOLD-TO-GUARD PERISAI!)
          ================================================================ -->
     <div id="touch-controls" aria-label="Kontrol Layar Sentuh">
-        <!-- D-Pad Kiri -->
         <div id="dpad-zone">
             <button id="t-left" class="touch-btn touch-dpad" data-active="0" type="button" aria-label="Gerak Kiri">
-                <svg class="svg-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                <svg class="svg-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><polyline points="15 18 9 12 15 6"/></svg>
             </button>
             <button id="t-right" class="touch-btn touch-dpad" data-active="0" type="button" aria-label="Gerak Kanan">
-                <svg class="svg-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                <svg class="svg-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
         </div>
 
-        <!-- Klaster Tombol Aksi Kanan -->
         <div class="action-cluster">
             <div class="action-col">
-                <button id="t-javelin" class="touch-btn touch-sm" data-cooldown="0" data-active="0" type="button" aria-label="Lempar Tombak Suci">
-                    <svg class="svg-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"/><polyline points="12 5 19 5 19 12"/></svg>
-                    <span class="touch-label">TOMBAK</span>
-                    <div id="t-javelin-fill" class="touch-fill" style="background:rgba(246,204,104,0.28);"></div>
-                    <span id="t-javelin-cd" class="touch-cd" style="color:#fde68a;"></span>
+                <button id="t-hammer" class="touch-btn touch-sm" data-cooldown="0" data-active="0" type="button" aria-label="Lempar Palu Suci Boomerang">
+                    <svg class="svg-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 12l-8.5 8.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L12 9"/><path d="M17.64 15L22 10.64"/><path d="M20.91 11.7l-1.25-1.25c-.6-.6-.93-1.4-.93-2.25v-.86L16.01 4.6a5.56 5.56 0 0 0-3.94-1.64H9l.92.82A6.18 6.18 0 0 1 12 8.4v1.56l2 2h2.47l2.26 1.91"/></svg>
+                    <span class="touch-label">PALU</span>
+                    <div id="t-hammer-fill" class="touch-fill" style="background:rgba(248,210,116,0.3);"></div>
+                    <span id="t-hammer-cd" class="touch-cd" style="color:#fde68a;"></span>
                 </button>
-                <button id="t-shield" class="touch-btn touch-md" data-cooldown="0" data-active="0" type="button" aria-label="Serbuan Perisai & Tangkis">
-                    <svg class="svg-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L4 5v6c0 5.5 3.4 9.7 8 11 4.6-1.3 8-5.5 8-11V5l-8-3z"/></svg>
+                <button id="t-guard" class="touch-btn touch-md" data-active="0" type="button" aria-label="Tahan Perisai dan Tangkis Balas">
+                    <svg class="svg-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L4 5v6c0 5.5 3.4 9.7 8 11 4.6-1.3 8-5.5 8-11V5l-8-3z"/></svg>
                     <span class="touch-label">PERISAI</span>
-                    <div id="t-shield-fill" class="touch-fill" style="background:rgba(56,189,248,0.28);"></div>
-                    <span id="t-shield-cd" class="touch-cd" style="color:#bae6fd;"></span>
                 </button>
             </div>
             <div class="action-col">
-                <button id="t-ulti" class="touch-btn touch-sm" data-ready="0" data-active="0" type="button" aria-label="Penghakiman Fajar Ultimate">
-                    <svg class="svg-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M2 12h3M19 12h3M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"/></svg>
-                    <span class="touch-label">ULTI</span>
-                    <div id="t-ulti-fill" class="touch-fill" style="background:rgba(250,204,21,0.34);"></div>
+                <button id="t-ulti" class="touch-btn touch-sm" data-ready="0" data-active="0" type="button" aria-label="Panggil Kavaleri Fajar">
+                    <svg class="svg-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                    <span class="touch-label">KAVALERI</span>
+                    <div id="t-ulti-fill" class="touch-fill" style="background:rgba(250,204,21,0.36);"></div>
                 </button>
-                <button id="t-attack" class="touch-btn touch-lg" data-active="0" type="button" aria-label="Tebas Pedang">
-                    <svg class="svg-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg>
+                <button id="t-attack" class="touch-btn touch-lg" data-active="0" type="button" aria-label="Tebas Pedang Besar">
+                    <svg class="svg-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/></svg>
                     <span class="touch-label">TEBAS</span>
                 </button>
             </div>
-            <button id="t-jump" class="touch-btn touch-lg" data-jumps="2" data-active="0" type="button" aria-label="Lompat dan Double Jump">
-                <div class="jump-pips">
-                    <span class="jump-pip"></span>
-                    <span class="jump-pip"></span>
-                </div>
-                <svg class="svg-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+            <button id="t-jump" class="touch-btn touch-lg" data-active="0" type="button" aria-label="Lompat dan Hantaman Tanah">
+                <svg class="svg-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="18 15 12 9 6 15"/></svg>
                 <span class="touch-label">LOMPAT</span>
             </button>
         </div>
     </div>
 
     <!-- ================================================================
-         MODAL MENU AWAL (START SCREEN)
+         MODAL MENU UTAMA (CASTLE SIEGE TITLE SCREEN)
          ================================================================ -->
-    <section id="start-modal" class="modal-backdrop" aria-labelledby="main-game-title">
-        <div class="modal-card iron-panel iron-panel--gold">
-            <div class="start-emblem">
-                <svg class="svg-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M12 2L4 5v6c0 5.5 3.4 9.7 8 11 4.6-1.3 8-5.5 8-11V5l-8-3z"/>
-                    <path d="M12 6.5v11"/>
-                    <path d="M8.5 10.5h7"/>
-                </svg>
+    <section id="start-modal" class="modal-backdrop" aria-labelledby="main-title">
+        <div class="modal-card herald-panel herald-panel--gold">
+            <div class="crest-emblem">
+                <svg class="svg-icon" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 2L4 5v6c0 5.5 3.4 9.7 8 11 4.6-1.3 8-5.5 8-11V5l-8-3z"/><path d="M12 6.5v11"/><path d="M8.5 10.5h7"/></svg>
             </div>
-
-            <div class="eyebrow">2D Action Platformer • Edisi Perang Salib Suci</div>
-            <h1 id="main-game-title" class="game-title">
-                KESATRIA CAHAYA
-                <span class="game-title-sub">VS ZOMBIE</span>
+            <div class="eyebrow">2D Castle Siege &amp; Horde Action RPG • v2.0</div>
+            <h1 id="main-title" class="hero-title">
+                KESATRIA BENTENG
+                <span class="hero-title-accent">PERANG ZOMBIE</span>
             </h1>
-            <p class="start-desc">
-                Tumpas wabah mayat hidup melintasi <strong>30 Stage (6 Babak)</strong> &amp; mode <strong>Boss Rush 9 Penguasa</strong>!
-                Kuasai <strong>Perisai Tangkis Sempurna</strong>, <strong>Tombak Suci</strong>, <strong>Tebas Pogo Udara</strong>, <strong>4 Relik Pusaka</strong>, &amp; <strong>Penghakiman Fajar</strong>.
+            <p class="lead-copy">
+                Pertahankan <strong>Gerbang Benteng Kerajaan</strong> dari kepungan mayat hidup yang bangkit dari kubur!
+                Pimpin <strong>Pemanah Menara &amp; Pengawal</strong>, kuasai <strong>Perisai Tangkis Balas</strong>, <strong>Palu Boomerang Suci</strong>, <strong>Kartu Berkah Roguelike</strong>, &amp; <strong>Serbuan Kavaleri Fajar</strong>!
             </p>
 
-            <div class="controls-grid">
-                <div class="ctrl-item">
-                    <div class="ctrl-icon">
-                        <svg class="svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/><polyline points="20 18 14 12 20 6" opacity="0.45"/></svg>
-                    </div>
-                    <div>
-                        <div class="ctrl-title">Gerak &amp; Lompat</div>
-                        <div class="ctrl-sub">WASD / Panah (Double Jump)</div>
-                    </div>
-                </div>
-                <div class="ctrl-item">
-                    <div class="ctrl-icon" style="color:#fca5a5;">
-                        <svg class="svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/></svg>
-                    </div>
-                    <div>
-                        <div class="ctrl-title">Pedang &amp; Tombak</div>
-                        <div class="ctrl-sub">J / Spasi (Pogo) &amp; Tombak (L / C)</div>
-                    </div>
-                </div>
-                <div class="ctrl-item">
-                    <div class="ctrl-icon" style="color:#7dd3fc;">
+            <div class="feature-pills">
+                <div class="feat-item">
+                    <div class="feat-ico" style="color:#7dd3fc;">
                         <svg class="svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L4 5v6c0 5.5 3.4 9.7 8 11 4.6-1.3 8-5.5 8-11V5l-8-3z"/></svg>
                     </div>
                     <div>
-                        <div class="ctrl-title">Perisai &amp; Ulti Fajar</div>
-                        <div class="ctrl-sub">K / Shift (Parry) &amp; Ulti (Q / E)</div>
+                        <div class="feat-t">Tahan Perisai &amp; Parry</div>
+                        <div class="feat-s">Tahan K/Shift • Pantulkan panah</div>
                     </div>
                 </div>
-                <div class="ctrl-item">
-                    <div class="ctrl-icon" style="color:#fde68a;">
-                        <svg class="svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                <div class="feat-item">
+                    <div class="feat-ico" style="color:#fde68a;">
+                        <svg class="svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 12l-8.5 8.5a2.12 2.12 0 0 1-3-3L12 9"/><path d="M17.64 15L22 10.64"/></svg>
                     </div>
                     <div>
-                        <div class="ctrl-title">Pandai Besi &amp; 4 Relik</div>
-                        <div class="ctrl-sub">Tombol B / Antar Stage</div>
+                        <div class="feat-t">Palu Boomerang &amp; Slam</div>
+                        <div class="feat-s">L/C Palu balik • Lompat+J Slam</div>
                     </div>
                 </div>
-            </div>
-
-            <!-- Pilihan Stage Terbuka -->
-            <div id="stage-select-bar" class="hidden">
-                <div class="stage-select-title">Pilih Stage Terbuka</div>
-                <div id="stage-select-tabs" class="hidden"></div>
-                <div id="stage-select-pills"></div>
+                <div class="feat-item">
+                    <div class="feat-ico" style="color:#fca5a5;">
+                        <svg class="svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                    </div>
+                    <div>
+                        <div class="feat-t">Pasukan &amp; Kavaleri Fajar</div>
+                        <div class="feat-s">Pemanah, Ketapel, &amp; Ulti [Q/E]</div>
+                    </div>
+                </div>
+                <div class="feat-item">
+                    <div class="feat-ico" style="color:#86efac;">
+                        <svg class="svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 8v8M8 12h8"/></svg>
+                    </div>
+                    <div>
+                        <div class="feat-t">Dewan Perang Roguelike</div>
+                        <div class="feat-s">Pilih 1 dari 3 Berkah tiap malam</div>
+                    </div>
+                </div>
             </div>
 
             <div class="btn-row">
-                <button id="btn-continue-stage" class="btn btn-emerald hidden" type="button">
-                    <svg class="svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                    <span id="btn-continue-label">Lanjut Stage</span>
+                <button id="btn-continue" class="btn btn-emerald hidden" type="button">
+                    <span id="btn-continue-text">Lanjut Malam 2</span>
                 </button>
-                <button id="btn-start-game" class="btn btn-gold" type="button">
-                    <svg class="svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/></svg>
-                    <span>MULAI PERJUANGAN</span>
+                <button id="btn-start-campaign" class="btn btn-gold" type="button">
+                    PERTAHANAN (10 MALAM)
                 </button>
-                <button id="btn-boss-rush" class="btn btn-crimson" type="button">
-                    <svg class="svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 18h20l-2-9-5 4-3-7-3 7-5-4-2 9z"/></svg>
-                    <span>BOSS RUSH (9)</span>
+                <button id="btn-start-endless" class="btn btn-crimson" type="button">
+                    MALAM DARAH ABADI
                 </button>
             </div>
-
-            <div id="start-best-record" class="best-record-note hidden"></div>
+            <div id="start-record-line" class="record-line hidden"></div>
         </div>
     </section>
 
     <!-- ================================================================
-         MODAL PANDAI BESI / TOKO TEMPAAN & RELIK PUSAKA
+         DEWAN PERANG (ANTAR MALAM: DRAFT 3 KARTU BERKAH + PERKUAT BENTENG)
          ================================================================ -->
-    <section id="shop-modal" class="modal-backdrop hidden" aria-labelledby="shop-heading">
-        <div class="modal-card modal-card--wide iron-panel iron-panel--gold">
-            <div class="shop-header">
+    <section id="council-modal" class="modal-backdrop hidden" aria-labelledby="council-heading">
+        <div class="modal-card modal-card--council herald-panel herald-panel--gold">
+            <div class="council-head">
                 <div>
-                    <div id="shop-subtitle" class="eyebrow" style="margin-bottom:2px;">PANDAI BESI BENTENG SUCI</div>
-                    <h2 id="shop-heading" class="shop-title">TEMPAAN KESATRIA</h2>
+                    <div id="council-eyebrow" class="eyebrow" style="margin-bottom:1px;">MALAM 1 BERTAHAN! • DEWAN PERANG BENTENG</div>
+                    <h2 id="council-heading" class="council-title">PILIH BERKAH &amp; PERKUAT BENTENG</h2>
                 </div>
-                <div class="shop-gold-box">
-                    <svg class="svg-icon" width="20" height="20" viewBox="0 0 24 24" fill="#f6cc68" stroke="#9c6b1c" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5" fill="none" stroke="#fffbeb" stroke-width="1.4"/></svg>
+                <div class="council-gold">
+                    <svg class="svg-icon" width="20" height="20" viewBox="0 0 24 24" fill="#f8d274" stroke="#925d15" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5" fill="none" stroke="#fffbeb" stroke-width="1.4"/></svg>
                     <div>
-                        <div style="font-size:10px;color:#a8a29e;font-weight:700;text-transform:uppercase;">Emas Suci</div>
-                        <div id="shop-gold">0</div>
+                        <div style="font-size:9.5px;color:#a8a29e;font-weight:700;text-transform:uppercase;">Kas Benteng</div>
+                        <div id="council-gold-val">0</div>
                     </div>
                 </div>
             </div>
 
-            <div id="shop-relics-bar" aria-label="Status 4 Relik Pusaka Kesatria"></div>
-
-            <div id="shop-story-box" class="hidden">
-                <div id="shop-story-title">BABAK I • PERANG MELAWAN WABAH</div>
-                <p id="shop-story-text"></p>
+            <div class="section-label">
+                <span>1. Pilih 1 Kartu Berkah Kesatria (Gratis)</span>
+                <span id="blessing-pick-status" style="color:#fde68a;">Belum Dipilih</span>
             </div>
+            <div id="blessing-cards-grid" class="blessing-grid"></div>
 
-            <div class="shop-grid">
-                <!-- Upgrade 1: Pedang & Tombak Suci -->
-                <div class="shop-card">
-                    <div class="shop-card-top">
-                        <div class="shop-card-icon shop-card-icon--atk">
-                            <svg class="svg-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/></svg>
-                        </div>
-                        <div style="flex:1;min-width:0;">
-                            <div class="shop-card-head">
-                                <h3>Pedang &amp; Tombak</h3>
-                                <span id="lv-atk" class="shop-lv-tag">Lv. 1</span>
-                            </div>
-                            <p class="shop-card-desc">Tingkatkan Damage Pedang &amp; berevolusi jadi Tombak Kembar (Lv.4) &amp; Trident Fajar (Lv.7).</p>
-                            <div id="stat-atk" class="shop-card-stat">Damage: 28 • 1 Tombak</div>
-                        </div>
+            <div class="section-label">
+                <span>2. Perkuat Benteng &amp; Pasukan (Dengan Emas)</span>
+                <span id="council-gate-info" style="color:#7dd3fc;">Gerbang: 500/500</span>
+            </div>
+            <div class="fortify-grid">
+                <div class="fortify-card">
+                    <div>
+                        <div class="fortify-title">Tempa Pedang &amp; Palu</div>
+                        <div class="fortify-sub">Naikkan damage tebasan, Slam, &amp; Palu Boomerang.</div>
+                        <div id="f-stat-atk" class="fortify-stat">Lv.1 • DMG 34</div>
                     </div>
-                    <button id="buy-atk" class="shop-buy-btn" type="button">
-                        <span id="cost-atk">30 Emas</span>
-                    </button>
+                    <button id="f-buy-atk" class="fortify-btn" type="button">40 Emas</button>
                 </div>
-
-                <!-- Upgrade 2: Zirah & Perisai Baja -->
-                <div class="shop-card">
-                    <div class="shop-card-top">
-                        <div class="shop-card-icon shop-card-icon--hp">
-                            <svg class="svg-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M12 2L4 5v6c0 5.5 3.4 9.7 8 11 4.6-1.3 8-5.5 8-11V5l-8-3z"/><path d="M12 7v10M8 11h8"/></svg>
-                        </div>
-                        <div style="flex:1;min-width:0;">
-                            <div class="shop-card-head">
-                                <h3>Zirah &amp; Perisai</h3>
-                                <span id="lv-hp" class="shop-lv-tag">Lv. 1</span>
-                            </div>
-                            <p class="shop-card-desc">Menambah +30 Max HP &amp; langsung memulihkan +30 HP serta memperkuat zirah baja.</p>
-                            <div id="stat-hp" class="shop-card-stat">Max HP: 120</div>
-                        </div>
+                <div class="fortify-card">
+                    <div>
+                        <div class="fortify-title">Perbaiki &amp; Perkuat Gerbang</div>
+                        <div class="fortify-sub">+120 Max HP Gerbang &amp; perbaiki 45% kerusakan.</div>
+                        <div id="f-stat-gate" class="fortify-stat">500 / 500 HP</div>
                     </div>
-                    <button id="buy-hp" class="shop-buy-btn" type="button">
-                        <span id="cost-hp">25 Emas</span>
-                    </button>
+                    <button id="f-buy-gate" class="fortify-btn" type="button">35 Emas</button>
                 </div>
-
-                <!-- Upgrade 3: Sepatu & Ketangkasan -->
-                <div class="shop-card">
-                    <div class="shop-card-top">
-                        <div class="shop-card-icon shop-card-icon--spd">
-                            <svg class="svg-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                        </div>
-                        <div style="flex:1;min-width:0;">
-                            <div class="shop-card-head">
-                                <h3>Ketangkasan Baja</h3>
-                                <span id="lv-spd" class="shop-lv-tag">Lv. 1</span>
-                            </div>
-                            <p class="shop-card-desc">Tingkatkan kecepatan lari serta percepat cooldown Serbuan Perisai &amp; Tombak Suci.</p>
-                            <div id="stat-spd" class="shop-card-stat">Kecepatan: 100%</div>
-                        </div>
+                <div class="fortify-card">
+                    <div>
+                        <div class="fortify-title">Rekrut Pasukan Benteng</div>
+                        <div class="fortify-sub">Tambah Pemanah Menara atau Pengawal Pedang!</div>
+                        <div id="f-stat-ally" class="fortify-stat">1 Pemanah • 0 Pengawal</div>
                     </div>
-                    <button id="buy-spd" class="shop-buy-btn" type="button">
-                        <span id="cost-spd">25 Emas</span>
-                    </button>
+                    <button id="f-buy-ally" class="fortify-btn" type="button">50 Emas</button>
                 </div>
-
-                <!-- Upgrade 4: Ramuan Cahaya Suci -->
-                <div class="shop-card">
-                    <div class="shop-card-top">
-                        <div class="shop-card-icon shop-card-icon--heal">
-                            <svg class="svg-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-                        </div>
-                        <div style="flex:1;min-width:0;">
-                            <div class="shop-card-head">
-                                <h3>Eliksir Fajar</h3>
-                                <span class="shop-lv-tag">Instan</span>
-                            </div>
-                            <p class="shop-card-desc">Memulihkan 65% Darah Kesatria secara instan dan membersihkan kutukan wabah.</p>
-                            <div id="stat-heal" class="shop-card-stat">HP: 120 / 120</div>
-                        </div>
+                <div class="fortify-card">
+                    <div>
+                        <div class="fortify-title">Eliksir &amp; Tong Minyak</div>
+                        <div class="fortify-sub">Pulihkan 70% HP Sir Aldric + pasang Tong Peledak!</div>
+                        <div id="f-stat-heal" class="fortify-stat">HP: 150 / 150</div>
                     </div>
-                    <button id="buy-heal" class="shop-buy-btn" type="button">
-                        <span id="cost-heal">20 Emas</span>
-                    </button>
+                    <button id="f-buy-heal" class="fortify-btn" type="button">25 Emas</button>
                 </div>
             </div>
 
-            <div id="shop-feedback" role="status" aria-live="polite"></div>
+            <div id="council-feedback" role="status" aria-live="polite"></div>
 
-            <div class="shop-footer">
-                <button id="btn-close-shop" class="btn btn-gold" style="width:100%;" type="button">
-                    <svg class="svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                    <span id="btn-close-shop-text">LANJUTKAN PERTEMPURAN</span>
-                </button>
-            </div>
+            <button id="btn-next-night" class="btn btn-gold" style="width:100%;" type="button">
+                <span id="btn-next-night-label">HADAPI MALAM BERIKUTNYA</span>
+            </button>
         </div>
     </section>
 
     <!-- ================================================================
-         MODAL PAUSE (JEDA PERMAINAN)
+         MODAL PAUSE
          ================================================================ -->
-    <section id="pause-modal" class="modal-backdrop hidden" aria-labelledby="pause-heading">
-        <div class="modal-card modal-card--sm iron-panel iron-panel--gold">
-            <div class="start-emblem" style="width:56px;height:56px;margin-bottom:10px;">
-                <svg class="svg-icon" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
-            </div>
-            <h2 id="pause-heading" class="font-display" style="font-size:22px;margin:0 0 6px;color:#fffbeb;">PERMAINAN DIJEDA</h2>
-            <p style="font-size:12px;color:#a8a29e;margin:0 0 18px;">Atur napas di balik perisaimu sebelum menumpas gerombolan zombie berikutnya.</p>
+    <section id="pause-modal" class="modal-backdrop hidden" aria-labelledby="pause-title">
+        <div class="modal-card modal-card--sm herald-panel herald-panel--gold">
+            <h2 id="pause-title" class="font-serif" style="font-size:22px;margin:0 0 6px;color:#fffbeb;">PERTEMPURAN DIJEDA</h2>
+            <p style="font-size:12px;color:#a8a29e;margin:0 0 16px;">Gerbang Benteng menunggu komandomu, Sir Aldric.</p>
             <div style="display:flex;flex-direction:column;gap:9px;">
-                <button id="btn-resume-game" class="btn btn-gold" type="button">Lanjutkan Pertempuran</button>
-                <button id="btn-pause-restart" class="btn btn-iron" type="button">Ulangi Stage Ini</button>
-                <button id="btn-pause-menu" class="btn btn-iron" type="button">Kembali ke Menu Utama</button>
+                <button id="btn-resume" class="btn btn-gold" type="button">Lanjutkan Pertempuran</button>
+                <button id="btn-retry-wave" class="btn btn-iron" type="button">Ulangi Malam Ini</button>
+                <button id="btn-back-menu" class="btn btn-iron" type="button">Kembali ke Menu Utama</button>
             </div>
         </div>
     </section>
 
     <!-- ================================================================
-         OVERLAY CG ENDING (FAJAR KERAJAAN CAHAYA)
+         OVERLAY ANIMASI CG ENDING (FAJAR DI ATAS BENTENG CAHAYA)
          ================================================================ -->
     <div id="ending-cg-overlay" class="hidden">
-        <div class="cg-bar-top">
-            <div class="cg-title">EPILOG • FAJAR KERAJAAN CAHAYA</div>
-            <button id="btn-skip-cg" type="button"><span id="btn-skip-cg-text">Lewati</span> &rsaquo;</button>
+        <div class="cg-bar cg-bar--top">
+            <div class="eyebrow" style="margin:0;">EPILOG • FAJAR DI ATAS BENTENG CAHAYA</div>
+            <button id="btn-skip-cg" type="button">Lewati &rsaquo;</button>
         </div>
-        <div class="cg-bar-bottom">
+        <div class="cg-bar cg-bar--bot">
             <p id="cg-subtitle"></p>
         </div>
     </div>
 
     <!-- ================================================================
-         MODAL GAME OVER / VICTORY
+         MODAL VICTORY / GAME OVER
          ================================================================ -->
     <section id="end-modal" class="modal-backdrop hidden" aria-labelledby="end-title">
-        <div class="modal-card iron-panel iron-panel--gold">
-            <div id="end-icon-wrap">
-                <svg id="end-icon-win" class="svg-icon" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
-                <svg id="end-icon-lose" class="svg-icon hidden" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><path d="M8 20v2h8v-2"/><path d="M16 20a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20"/></svg>
-            </div>
-            <div id="end-sub" class="eyebrow">MISI SELESAI</div>
-            <h2 id="end-title">KEMENANGAN MUTLAK!</h2>
-            <p id="end-desc">Wabah mayat hidup telah disucikan oleh cahaya pedangmu.</p>
+        <div class="modal-card herald-panel herald-panel--gold">
+            <div id="end-eyebrow" class="eyebrow">BENTENG BERTAHAN</div>
+            <h2 id="end-title" class="hero-title" style="font-size:28px;">FAJAR KEMENANGAN!</h2>
+            <p id="end-desc" class="lead-copy" style="margin-bottom:8px;">Gerbang Benteng Kerajaan berhasil dipertahankan sampai fajar menyingsing!</p>
 
             <div class="end-stats">
                 <div>
+                    <div class="stat-k">Malam Dicapai</div>
+                    <div id="end-nights" class="stat-v" style="color:#f8d274;">10</div>
+                </div>
+                <div>
                     <div class="stat-k">Zombie Dibasmi</div>
-                    <div id="end-kills" class="stat-v stat-v--plague">0</div>
+                    <div id="end-kills" class="stat-v" style="color:#84cc16;">0</div>
                 </div>
                 <div>
-                    <div class="stat-k">Total Emas Suci</div>
-                    <div id="end-gold" class="stat-v stat-v--gold">0</div>
+                    <div class="stat-k">Parry Sempurna</div>
+                    <div id="end-parries" class="stat-v" style="color:#38bdf8;">0</div>
                 </div>
             </div>
 
-            <div id="end-meta-row" class="end-meta-row hidden">
-                <div>
-                    <div class="stat-k">Peringkat</div>
-                    <div id="end-rank" class="stat-v stat-v--gold font-display">S</div>
-                </div>
-                <div>
-                    <div class="stat-k">Waktu</div>
-                    <div id="end-time" class="stat-v stat-v--sky">00:00</div>
-                </div>
-                <div>
-                    <div class="stat-k">Peti Relik</div>
-                    <div id="end-chests" class="stat-v" style="color:#fde68a;">0</div>
-                </div>
-            </div>
-
-            <div id="end-record" class="hidden"></div>
+            <div id="end-record-text" class="record-line" style="margin:0 0 14px;"></div>
 
             <div class="btn-row">
-                <button id="btn-retry-stage" class="btn btn-iron" type="button">Ulangi Stage</button>
-                <button id="btn-replay-cg" class="btn btn-gold hidden" type="button">Putar CG Ending</button>
-                <button id="btn-play-again" class="btn btn-gold" type="button">Main Dari Awal</button>
+                <button id="btn-end-retry" class="btn btn-iron" type="button">Ulangi Malam Ini</button>
+                <button id="btn-end-cg" class="btn btn-gold hidden" type="button">Putar CG Fajar</button>
+                <button id="btn-end-menu" class="btn btn-gold" type="button">Menu Utama</button>
             </div>
         </div>
     </section>

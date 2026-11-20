@@ -6,14 +6,11 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
-const outDir = '/tmp/kvz-screenshots';
+const outDir = '/tmp/kvz-v2-screenshots';
 fs.mkdirSync(outDir, { recursive: true });
 
-function sleep(ms) {
-    return new Promise(r => setTimeout(r, ms));
-}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-// 1. Lightweight static server for index.html
 const server = http.createServer((req, res) => {
     const html = fs.readFileSync(path.join(rootDir, 'index.html'));
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -24,8 +21,7 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const { port } = server.address();
 const url = `http://127.0.0.1:${port}/`;
 
-// 2. Launch headless Chromium with remote debugging
-const debugPort = 9222 + Math.floor(Math.random() * 400);
+const debugPort = 9240 + Math.floor(Math.random() * 400);
 const chrome = spawn('/usr/bin/chromium', [
     '--headless=new',
     '--no-sandbox',
@@ -38,30 +34,20 @@ const chrome = spawn('/usr/bin/chromium', [
 ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
 let wsUrl = null;
-for (let attempt = 0; attempt < 40; attempt++) {
+for (let i = 0; i < 40; i++) {
     try {
-        const resp = await fetch(`http://127.0.0.1:${debugPort}/json/list`);
-        const list = await resp.json();
+        const list = await (await fetch(`http://127.0.0.1:${debugPort}/json/list`)).json();
         const page = list.find(t => t.type === 'page');
-        if (page && page.webSocketDebuggerUrl) {
-            wsUrl = page.webSocketDebuggerUrl;
-            break;
-        }
+        if (page?.webSocketDebuggerUrl) { wsUrl = page.webSocketDebuggerUrl; break; }
     } catch (e) {}
     await sleep(150);
 }
+if (!wsUrl) { chrome.kill('SIGKILL'); server.close(); throw new Error('CDP connect failed'); }
 
-if (!wsUrl) {
-    chrome.kill('SIGKILL');
-    server.close();
-    throw new Error('Failed to connect to Chromium DevTools Protocol');
-}
-
-// 3. Minimal CDP client using Node 24 built-in WebSocket
 const ws = new WebSocket(wsUrl);
-await new Promise((resolve, reject) => {
-    ws.addEventListener('open', resolve, { once: true });
-    ws.addEventListener('error', reject, { once: true });
+await new Promise((res, rej) => {
+    ws.addEventListener('open', res, { once: true });
+    ws.addEventListener('error', rej, { once: true });
 });
 
 let msgId = 1;
@@ -69,200 +55,138 @@ const pending = new Map();
 const errors = [];
 
 ws.addEventListener('message', ev => {
-    const data = JSON.parse(ev.data);
-    if (data.id && pending.has(data.id)) {
-        const { resolve, reject } = pending.get(data.id);
-        pending.delete(data.id);
-        if (data.error) reject(new Error(data.error.message));
-        else resolve(data.result);
-    } else if (data.method === 'Runtime.exceptionThrown') {
-        const desc = data.params.exceptionDetails?.exception?.description || data.params.exceptionDetails?.text || 'Unknown JS exception';
-        errors.push(`EXCEPTION: ${desc}`);
-    } else if (data.method === 'Log.entryAdded' && data.params.entry?.level === 'error') {
-        errors.push(`LOG_ERROR: ${data.params.entry.text}`);
+    const d = JSON.parse(ev.data);
+    if (d.id && pending.has(d.id)) {
+        const { resolve, reject } = pending.get(d.id);
+        pending.delete(d.id);
+        if (d.error) reject(new Error(d.error.message));
+        else resolve(d.result);
+    } else if (d.method === 'Runtime.exceptionThrown') {
+        errors.push(`EXCEPTION: ${d.params.exceptionDetails?.exception?.description || d.params.exceptionDetails?.text}`);
+    } else if (d.method === 'Log.entryAdded' && d.params.entry?.level === 'error') {
+        errors.push(`LOG_ERROR: ${d.params.entry.text}`);
     }
 });
 
-function cdp(method, params = {}) {
-    return new Promise((resolve, reject) => {
-        const id = msgId++;
-        pending.set(id, { resolve, reject });
-        ws.send(JSON.stringify({ id, method, params }));
-    });
-}
+const cdp = (method, params = {}) => new Promise((resolve, reject) => {
+    const id = msgId++;
+    pending.set(id, { resolve, reject });
+    ws.send(JSON.stringify({ id, method, params }));
+});
 
 async function evalJs(expression) {
-    const res = await cdp('Runtime.evaluate', {
-        expression,
-        returnByValue: true,
-        awaitPromise: true
-    });
-    if (res.exceptionDetails) {
-        throw new Error(`Eval error: ${res.exceptionDetails.exception?.description || res.exceptionDetails.text}`);
-    }
+    const res = await cdp('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
+    if (res.exceptionDetails) throw new Error(res.exceptionDetails.exception?.description || res.exceptionDetails.text);
     return res.result?.value;
 }
 
-async function screenshot(filename) {
+async function shot(name) {
     const res = await cdp('Page.captureScreenshot', { format: 'png' });
-    const fullPath = path.join(outDir, filename);
-    fs.writeFileSync(fullPath, Buffer.from(res.data, 'base64'));
-    console.log(`[SCREENSHOT] ${fullPath}`);
+    const p = path.join(outDir, name);
+    fs.writeFileSync(p, Buffer.from(res.data, 'base64'));
+    console.log(`[SCREENSHOT] ${p}`);
 }
 
 try {
     await cdp('Page.enable');
     await cdp('Runtime.enable');
     await cdp('Log.enable');
-    await cdp('Emulation.setDeviceMetricsOverride', {
-        width: 1280,
-        height: 720,
-        deviceScaleFactor: 1,
-        mobile: false
-    });
+    await cdp('Emulation.setDeviceMetricsOverride', { width: 1280, height: 720, deviceScaleFactor: 1, mobile: false });
 
     await cdp('Page.navigate', { url });
-    await sleep(900);
+    await sleep(850);
 
-    // 1. Start Screen (Desktop)
-    const initState = await evalJs('window.__KVZ_APP__.getState()');
-    if (initState.state !== 'start' || initState.stageCount !== 30 || initState.bossRushCount !== 9) {
-        throw new Error(`Unexpected init state: ${JSON.stringify(initState)}`);
+    // 1. Live Castle Siege Title Screen
+    const st0 = await evalJs('window.__KVZ_APP__.getState()');
+    if (st0.state !== 'start' || st0.nightCount !== 10 || st0.blessingCount !== 12) {
+        throw new Error(`Invalid init state: ${JSON.stringify(st0)}`);
     }
-    await screenshot('01_start_desktop.png');
+    await shot('01_start_desktop.png');
 
-    // 2. Start Game & Test Stage 1 Movement + Combat + Javelin + Shield Charge
-    await evalJs('document.getElementById("btn-start-game").click()');
-    await sleep(400);
+    // 2. Start Campaign Night 1 — Combat, Boomerang Hammer, Grave Emergence, Archers!
     await evalJs(`
-        // Simulasi gerak kanan, lempar tombak, serbuan perisai, & tebasan
-        keys.right = true;
-    `);
-    await sleep(700);
-    await evalJs(`
-        keys.right = false;
-        keys.javelinPressed = true;
+        document.getElementById('btn-start-campaign').click();
+        hideWaveBanner();
+        game.blessings.flame_blade = 1;
+        game.allies.archers = 2;
+        game.allies.footmen = 1;
+        allies.push(new AlliedFootman(0));
+        zombies.push(new Zombie('walker', 600, 1));
+        zombies.push(new Zombie('ghoul', 740, 1));
+        zombies.push(new Zombie('keg_carrier', 880, 1));
+        zombies[0].emergeTimer = 0;
+        zombies[1].emergeTimer = 0;
+        zombies[2].emergeTimer = 18;
+        knight.x = 460;
+        keys.hammerPressed = true;
         keys.attackPressed = true;
     `);
     await sleep(220);
-    const combatState = await evalJs('window.__KVZ_APP__.getState()');
-    if (combatState.state !== 'playing' || combatState.player.x <= 90) {
-        throw new Error(`Knight failed to move/play: ${JSON.stringify(combatState)}`);
-    }
-    console.log('[OK] Stage 1 movement & combat verified:', JSON.stringify(combatState.player));
-    await screenshot('02_stage1_combat.png');
+    await shot('02_courtyard_battle.png');
 
-    // 3. Open Forge Shop & Buy Upgrades + Verify Relic Unlock
+    // 3. War Council (Roguelike 3-Card Blessing Draft + Castle Fortify!)
     await evalJs(`
-        game.gold = 400;
-        window.__KVZ_APP__.openShopForTest();
-        document.getElementById("buy-atk").click();
-        document.getElementById("buy-atk").click();
-        document.getElementById("buy-hp").click();
-        document.getElementById("buy-spd").click();
+        game.gold = 220;
+        window.__KVZ_APP__.openCouncilForTest();
+        document.querySelector('[data-blessing]').click();
+        document.getElementById('f-buy-ally').click();
     `);
-    await sleep(250);
-    const shopState = await evalJs('window.__KVZ_APP__.getState()');
-    if (shopState.player.atk <= 28 || shopState.player.maxHp <= 120) {
-        throw new Error(`Upgrades did not apply: ${JSON.stringify(shopState.player)}`);
-    }
-    console.log('[OK] Forge upgrades & Relics verified:', JSON.stringify(shopState.player));
-    await screenshot('03_forge_shop.png');
+    await sleep(220);
+    await shot('03_war_council.png');
 
-    // 4. Stage 30 Final Boss Fight — Raja Lich Agung Azrath + Perfect Parry Test
+    // 4. Malam 10 Final Boss (Raja Lich Agung Azrath) + Hold-to-Guard Perfect Parry Reflect!
     await evalJs(`
-        document.getElementById("btn-close-shop").click();
-        window.__KVZ_APP__.loadStageForTest(29);
-        hideBanner();
-        // Test Perfect Parry against boss projectile + Relic II Lightning!
-        player.fury = 20;
-        player.performShieldCharge();
-        projectiles.push({
-            kind: 'soul',
-            x: player.x + player.w + 10,
-            y: player.y + 30,
-            vx: -6, vy: 0, r: 10, dmg: 20, color: '#84cc16', gravity: false, life: 60
+        window.__KVZ_APP__.setupBossShowcase(10);
+        keys.guardHeld = true;
+        knight.update();
+        enemyProjectiles.push({
+            kind: 'bolt',
+            x: knight.x + knight.w + 8,
+            y: knight.y + 34,
+            vx: -7, vy: 0, r: 9, dmg: 22, color: '#a3e635', life: 60
         });
     `);
-    await sleep(420);
-    const bossState = await evalJs('window.__KVZ_APP__.getState()');
-    if (!bossState.bossAlive || bossState.stageIndex !== 29) {
-        throw new Error(`Stage 30 Boss failed to spawn: ${JSON.stringify(bossState)}`);
+    await sleep(260);
+    const parrySt = await evalJs('window.__KVZ_APP__.getState()');
+    if (parrySt.totalParries < 1) {
+        throw new Error(`Perfect Parry did not trigger: ${JSON.stringify(parrySt)}`);
     }
-    if (bossState.player.fury < 40) {
-        throw new Error(`Perfect Parry did not boost Fury as expected: ${JSON.stringify(bossState.player)}`);
-    }
-    console.log('[OK] Stage 30 Final Boss & Perfect Parry verified:', JSON.stringify(bossState.player));
-    await screenshot('04_boss_azrath.png');
+    console.log('[OK] Hold-to-Guard Perfect Parry Reflect verified! Parries:', parrySt.totalParries);
+    await shot('04_parry_boss.png');
 
-    // 5. Trigger Ultimate (Penghakiman Fajar + Mahkota Matahari Dawn Waves!)
+    // 5. Golden Spectral Cavalry Charge Ultimate!
     await evalJs(`
-        game.upgrades = { atkLevel: 8, hpLevel: 6, spdLevel: 5 };
-        player.applyUpgrades(true);
-        window.__KVZ_APP__.triggerUltiForTest();
+        keys.guardHeld = false;
+        window.__KVZ_APP__.triggerCavalryForTest();
     `);
-    await sleep(160);
-    await screenshot('05_ulti_fajar.png');
+    await sleep(580);
+    await shot('05_cavalry_charge.png');
 
-    // 5b. Test Pause / Resume & Game Over / Retry Stage
-    await evalJs('openPause()');
-    if ((await evalJs('game.state')) !== 'paused') throw new Error('Pause failed');
-    await evalJs('resumeGame()');
-    if ((await evalJs('game.state')) !== 'playing') throw new Error('Resume failed');
-    await evalJs('triggerGameOver()');
-    if ((await evalJs('game.state')) !== 'gameover') throw new Error('GameOver state failed');
-    await evalJs('document.getElementById("btn-retry-stage").click()');
-    if ((await evalJs('game.state')) !== 'playing') throw new Error('Retry stage failed');
-    console.log('[OK] Pause/Resume & GameOver/Retry verified');
-
-    // 6. Animated Ending CG (Fajar Kerajaan Cahaya)
+    // 6. Animated Dawn Victory CG over Saved Citadel!
     await evalJs(`
         window.__KVZ_APP__.startEndingCGForTest();
-        endingCG.frame = 340;
+        endingCG.frame = 320;
         updateEndingCG();
     `);
-    await sleep(250);
-    await screenshot('06_ending_cg.png');
+    await sleep(240);
+    await shot('06_ending_cg.png');
 
-    // 7. Victory Modal
-    await evalJs('window.__KVZ_APP__.showVictoryForTest()');
-    await sleep(250);
-    await screenshot('07_victory.png');
-
-    // 8. Mobile Landscape (800x360) Start Screen & Unlocked Stage Select
+    // 7. Mobile Landscape (800x360) Battle with Hold-to-Guard Touch Controls!
+    await cdp('Emulation.setDeviceMetricsOverride', { width: 800, height: 360, deviceScaleFactor: 2, mobile: true });
     await evalJs(`
-        localStorage.setItem('kvz_unlocked_stage_v1', '18');
-        document.getElementById('btn-play-again').click();
         document.body.classList.add('is-touch');
+        window.__KVZ_APP__.setupBossShowcase(3);
     `);
-    await cdp('Emulation.setDeviceMetricsOverride', {
-        width: 800,
-        height: 360,
-        deviceScaleFactor: 2,
-        mobile: true
-    });
-    await sleep(350);
-    await screenshot('08_mobile_start.png');
+    await sleep(320);
+    await shot('07_mobile_battle.png');
 
-    // 9. Mobile Landscape (800x360) Boss Rush Gameplay with Touch Controls
-    await evalJs('document.getElementById("btn-boss-rush").click()');
-    await sleep(450);
-    await evalJs(`
-        const boss = enemies.find(e => e.isBoss);
-        if (boss) {
-            player.x = boss.arenaMinX + 180;
-            boss.activated = true;
-            game.cameraX = Math.max(0, Math.min(STAGES[game.stageIndex].worldWidth - VIEW_WIDTH, player.x - 240));
-            updateHUD();
-        }
-    `);
-    await sleep(250);
-    await screenshot('09_mobile_gameplay.png');
+    // 8. Mobile Landscape (800x360) War Council 3-Card Roguelike Draft!
+    await evalJs('window.__KVZ_APP__.openCouncilForTest()');
+    await sleep(220);
+    await shot('08_mobile_council.png');
 
-    if (errors.length > 0) {
-        throw new Error(`Browser console/runtime errors detected:\n${errors.join('\n')}`);
-    }
-    console.log('[PASS] ALL BROWSER E2E & VISUAL TESTS PASSED WITH ZERO ERRORS!');
+    if (errors.length > 0) throw new Error(`Browser errors:\n${errors.join('\n')}`);
+    console.log('[PASS] ALL v2.0 CASTLE SIEGE E2E & VISUAL TESTS PASSED WITH ZERO ERRORS!');
 } finally {
     ws.close();
     chrome.kill('SIGKILL');

@@ -10,9 +10,8 @@ const css = fs.readFileSync(path.join(rootDir, 'src/styles.css'), 'utf8');
 
 const jsOrder = [
     'src/js/audio.js',
-    'src/js/stages.js',
-    'src/js/player.js',
-    'src/js/enemies.js',
+    'src/js/data.js',
+    'src/js/entities.js',
     'src/js/renderer.js',
     'src/js/main.js'
 ];
@@ -31,7 +30,6 @@ const output = template
 const outPath = path.join(rootDir, 'index.html');
 fs.writeFileSync(outPath, output, 'utf8');
 
-// Sinkronkan juga ke assets WebView Android APK
 const androidWwwDir = path.join(rootDir, 'app/src/main/assets/www');
 fs.mkdirSync(androidWwwDir, { recursive: true });
 const androidOutPath = path.join(androidWwwDir, 'index.html');

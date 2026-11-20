@@ -1,316 +1,589 @@
 /* ==========================================================================
-   RENDERER DUNIA 2D (15 BIOMA GOTHIC, CUACA, RADAR STAGE 2D, & CG ENDING)
+   RENDERER 2.5D MEDAN PERANG BENTENG: LANGIT DINAMIS, KASTIL, KAVALERI, & CG
    ========================================================================== */
 
-function buildBgProps(stage) {
-    const props = [];
-    const count = Math.ceil(stage.worldWidth / 195) + 6;
-    for (let i = 0; i < count; i++) {
-        const seed = (i * 137 + stage.id * 53) % 100;
-        props.push({
-            x: i * 195 + (seed % 70) - 35,
-            w: 44 + (seed % 56),
-            h: 110 + ((seed * 3) % 175),
-            variant: i % 3
-        });
-    }
-    return props;
-}
+const CLOUDS = Array.from({ length: 9 }, (_, i) => ({
+    x: i * 240,
+    y: 55 + (i % 4) * 44,
+    w: 170 + (i % 3) * 65,
+    h: 34 + (i % 2) * 16,
+    spd: 0.18 + (i % 3) * 0.1
+}));
 
-function drawSkyAndMoon(ctx, stage) {
-    ctx.fillStyle = skyGradientCache[game.stageIndex] || stage.skyTop;
+const WEATHER_PTS = Array.from({ length: 42 }, (_, i) => ({
+    x: (i * 89) % VIEW_WIDTH,
+    y: (i * 61) % VIEW_HEIGHT,
+    sz: 1.6 + (i % 3) * 1.1,
+    ph: i * 0.8
+}));
+
+function drawSkyLayer(ctx, cfg) {
+    const g = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+    g.addColorStop(0, cfg.skyTop);
+    g.addColorStop(0.56, cfg.skyMid);
+    g.addColorStop(1, cfg.skyBot);
+    ctx.fillStyle = g;
     ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
 
-    // Bintang tipis di langit atas
-    ctx.save();
-    ctx.fillStyle = 'rgba(255, 251, 235, 0.35)';
-    for (let i = 0; i < 28; i++) {
-        const sx = ((i * 173 + stage.id * 41) % VIEW_WIDTH);
-        const sy = 22 + ((i * 89) % 240);
-        const r = (i % 3 === 0) ? 1.8 : 1.1;
-        ctx.fillRect(sx, sy, r, r);
+    // Kilatan petir badai sesekali
+    if (game.lightningFlash > 0) {
+        ctx.fillStyle = `rgba(224, 242, 254, ${game.lightningFlash * 0.045})`;
+        ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
     }
-    ctx.restore();
 
-    if (stage.moonType === 'none') return;
+    // Bintang langit atas
+    ctx.fillStyle = 'rgba(255, 251, 235, 0.42)';
+    for (let i = 0; i < 32; i++) {
+        const sx = (i * 197 + cfg.night * 53) % VIEW_WIDTH;
+        const sy = 18 + ((i * 73) % 210);
+        const tw = (i % 4 === 0) ? 2 : 1.2;
+        ctx.fillRect(sx, sy, tw, tw);
+    }
 
-    const mx = VIEW_WIDTH - 220;
-    const my = 148;
-    const isEclipse = stage.moonType === 'eclipse' || stage.moonType === 'eclipse_gold';
-    const moonColor = stage.moonType === 'blood'
-        ? '#dc2626'
-        : (stage.moonType === 'sickly' ? '#a3e635' : (stage.moonType === 'ice' ? '#bae6fd' : stage.ambientColor));
-
-    ctx.save();
-    // Soft luminescent atmospheric halo
-    const halo = ctx.createRadialGradient(mx, my, 36, mx, my, isEclipse ? 145 : 132);
-    halo.addColorStop(0, moonColor);
-    halo.addColorStop(0.42, 'rgba(246, 204, 104, 0.14)');
+    // Bulan Purnama / Bulan Darah / Gerhana Emas dengan Corona Radial Halus
+    const mx = VIEW_WIDTH - 230;
+    const my = 142;
+    const isEclipse = cfg.moonType === 'eclipse' || cfg.moonType === 'eclipse_gold';
+    const halo = ctx.createRadialGradient(mx, my, 36, mx, my, 165);
+    halo.addColorStop(0, cfg.moonColor);
+    halo.addColorStop(0.4, 'rgba(248, 210, 116, 0.14)');
     halo.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.globalAlpha = isEclipse ? 0.52 : 0.34;
+    ctx.save();
+    ctx.globalAlpha = isEclipse ? 0.58 : 0.36;
     ctx.fillStyle = halo;
     ctx.beginPath();
-    ctx.arc(mx, my, isEclipse ? 145 : 132, 0, Math.PI * 2);
+    ctx.arc(mx, my, 165, 0, Math.PI * 2);
     ctx.fill();
 
-    // Moon disc
-    ctx.globalAlpha = isEclipse ? 0.92 : 0.72;
-    ctx.fillStyle = moonColor;
+    ctx.globalAlpha = isEclipse ? 0.96 : 0.78;
+    ctx.fillStyle = cfg.moonColor;
     ctx.beginPath();
-    ctx.arc(mx, my, 50, 0, Math.PI * 2);
+    ctx.arc(mx, my, 54, 0, Math.PI * 2);
     ctx.fill();
 
     if (isEclipse) {
         ctx.globalAlpha = 1;
-        ctx.fillStyle = '#06070b';
+        ctx.fillStyle = '#07080d';
         ctx.beginPath();
-        ctx.arc(mx, my, 43, 0, Math.PI * 2);
+        ctx.arc(mx, my, 46, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = stage.moonType === 'eclipse_gold' ? 'rgba(253, 224, 71, 0.92)' : 'rgba(248, 113, 113, 0.78)';
-        ctx.lineWidth = 3;
+        ctx.strokeStyle = cfg.moonType === 'eclipse_gold' ? '#fde047' : '#f87171';
+        ctx.lineWidth = 3.2;
         ctx.beginPath();
-        ctx.arc(mx, my, 45, 0, Math.PI * 2);
+        ctx.arc(mx, my, 48, 0, Math.PI * 2);
         ctx.stroke();
     } else {
-        // Subtle lunar craters
         ctx.globalAlpha = 0.14;
         ctx.fillStyle = '#0f172a';
         ctx.beginPath();
-        ctx.arc(mx - 14, my - 10, 10, 0, Math.PI * 2);
-        ctx.arc(mx + 15, my + 8, 13, 0, Math.PI * 2);
-        ctx.arc(mx - 4, my + 18, 7, 0, Math.PI * 2);
+        ctx.arc(mx - 15, my - 11, 11, 0, Math.PI * 2);
+        ctx.arc(mx + 16, my + 8, 14, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.restore();
+
+    // Awan Volumetrik Berlapis Bergerak Perlahan
+    ctx.save();
+    ctx.fillStyle = 'rgba(12, 14, 22, 0.34)';
+    for (const c of CLOUDS) {
+        if (game.state === 'playing' || game.state === 'start') {
+            c.x -= c.spd;
+            if (c.x + c.w < -60) c.x = VIEW_WIDTH + 90;
+        }
+        ctx.beginPath();
+        ctx.ellipse(c.x, c.y, c.w * 0.5, c.h * 0.65, 0, 0, Math.PI * 2);
+        ctx.ellipse(c.x - c.w * 0.28, c.y + 8, c.w * 0.32, c.h * 0.5, 0, 0, Math.PI * 2);
+        ctx.ellipse(c.x + c.w * 0.28, c.y + 7, c.w * 0.34, c.h * 0.52, 0, 0, Math.PI * 2);
         ctx.fill();
     }
     ctx.restore();
 }
 
-function drawWeather(ctx, stage) {
-    const wType = stage.weather || 'mist';
+function drawHorizonAndCathedralBg(ctx) {
     ctx.save();
-    const colorMap = {
-        storm: 'rgba(125, 211, 252, 0.42)',
-        snow: 'rgba(224, 242, 254, 0.58)',
-        ember: 'rgba(251, 146, 60, 0.5)',
-        spore: 'rgba(163, 230, 53, 0.42)',
-        astral: 'rgba(246, 204, 104, 0.52)',
-        mist: 'rgba(214, 211, 209, 0.28)',
-        dust: 'rgba(203, 213, 225, 0.26)'
-    };
-    const col = colorMap[wType] || stage.ambientColor;
-    ctx.fillStyle = col;
-    ctx.strokeStyle = col;
-    ctx.lineWidth = 1.5;
+    // Pegunungan Jauh (Parallax 0.2)
+    ctx.fillStyle = 'rgba(14, 15, 22, 0.66)';
+    ctx.beginPath();
+    ctx.moveTo(0, GROUND_Y);
+    for (let x = 0; x <= VIEW_WIDTH + 160; x += 160) {
+        const wx = x + game.cameraX * 0.2;
+        const h = 110 + Math.sin(wx * 0.0055) * 65 + Math.cos(wx * 0.013) * 32;
+        ctx.lineTo(x, GROUND_Y - h);
+    }
+    ctx.lineTo(VIEW_WIDTH, GROUND_Y);
+    ctx.closePath();
+    ctx.fill();
 
-    for (let i = 0; i < weatherParticles.length; i++) {
-        const wp = weatherParticles[i];
-        if (game.state === 'playing') {
-            if (wType === 'storm') {
-                wp.x -= 4.2;
-                wp.y += 10.5;
-            } else if (wType === 'ember') {
-                wp.x += Math.sin(game.worldTick * 0.03 + wp.phase) * 0.65;
-                wp.y -= wp.speedY * 1.3;
-            } else if (wType === 'snow') {
-                wp.x += Math.sin(game.worldTick * 0.025 + wp.phase) * 0.7 - 0.35;
-                wp.y += wp.speedY * 1.05;
-            } else {
-                wp.x += Math.sin(game.worldTick * 0.02 + wp.phase) * 0.45 + wp.speedX;
-                wp.y += Math.cos(game.worldTick * 0.02 + wp.phase) * 0.32;
-            }
-            if (wp.x < -12) wp.x = VIEW_WIDTH + 8;
-            if (wp.x > VIEW_WIDTH + 12) wp.x = -8;
-            if (wp.y < -12) wp.y = VIEW_HEIGHT + 8;
-            if (wp.y > VIEW_HEIGHT + 12) wp.y = -8;
-        }
-
-        if (wType === 'storm') {
+    // Siluet Pemakaman & Pohon Mati Menengah (Parallax 0.48)
+    for (let i = 0; i < 12; i++) {
+        const px = 260 + i * 190 - game.cameraX * 0.48;
+        if (px < -120 || px > VIEW_WIDTH + 120) continue;
+        ctx.fillStyle = 'rgba(12, 13, 19, 0.78)';
+        if (i % 3 === 0) {
+            // Pohon Willow Mati Bercabang
+            ctx.fillRect(px, GROUND_Y - 175, 16, 175);
             ctx.beginPath();
-            ctx.moveTo(wp.x, wp.y);
-            ctx.lineTo(wp.x - 4.5, wp.y + 12);
-            ctx.stroke();
-        } else {
-            ctx.globalAlpha = wType === 'snow' ? 0.62 : (0.24 + 0.22 * Math.sin(game.worldTick * 0.04 + wp.phase));
-            ctx.beginPath();
-            ctx.arc(wp.x, wp.y, wp.size, 0, Math.PI * 2);
+            ctx.moveTo(px + 8, GROUND_Y - 145);
+            ctx.lineTo(px - 42, GROUND_Y - 195);
+            ctx.lineTo(px - 34, GROUND_Y - 203);
+            ctx.lineTo(px + 8, GROUND_Y - 160);
             ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(px + 8, GROUND_Y - 130);
+            ctx.lineTo(px + 60, GROUND_Y - 175);
+            ctx.lineTo(px + 52, GROUND_Y - 183);
+            ctx.lineTo(px + 8, GROUND_Y - 144);
+            ctx.fill();
+        } else if (i % 3 === 1) {
+            // Reruntuhan Menara Biara Jauh
+            ctx.fillRect(px, GROUND_Y - 155, 58, 155);
+            ctx.beginPath();
+            ctx.moveTo(px - 6, GROUND_Y - 155);
+            ctx.lineTo(px + 29, GROUND_Y - 210);
+            ctx.lineTo(px + 64, GROUND_Y - 155);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = 'rgba(248, 210, 116, 0.16)';
+            ctx.beginPath();
+            ctx.arc(px + 29, GROUND_Y - 102, 11, Math.PI, 0);
+            ctx.lineTo(px + 40, GROUND_Y - 72);
+            ctx.lineTo(px + 18, GROUND_Y - 72);
+            ctx.closePath();
+            ctx.fill();
+        } else {
+            // Batu Nisan Salib Pemakaman
+            ctx.fillRect(px + 14, GROUND_Y - 72, 34, 72);
+            ctx.beginPath();
+            ctx.arc(px + 31, GROUND_Y - 72, 17, Math.PI, 0);
+            ctx.fill();
+            ctx.fillStyle = 'rgba(214, 156, 53, 0.22)';
+            ctx.fillRect(px + 29, GROUND_Y - 60, 4, 24);
+            ctx.fillRect(px + 22, GROUND_Y - 52, 18, 4);
         }
     }
+
+    // Kabut Bawah Cakrawala Lembut
+    const mist = ctx.createLinearGradient(0, GROUND_Y - 110, 0, GROUND_Y);
+    mist.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    mist.addColorStop(1, 'rgba(22, 26, 30, 0.45)');
+    ctx.fillStyle = mist;
+    ctx.fillRect(0, GROUND_Y - 110, VIEW_WIDTH, 110);
     ctx.restore();
 }
 
-function drawParallaxProps(ctx, stage) {
-    const theme = stage.bgStyle || 'graveyard';
-    ctx.save();
+function drawCitadelFortress(ctx) {
+    // Benteng Kerajaan Cahaya di Sisi Kiri Medan Perang (x = -40 .. GATE_X)
+    const gateRatio = Math.max(0, game.gateHp / Math.max(1, game.gateMaxHp));
 
-    // Siluet pegunungan/benteng jauh (parallax 0.22)
-    ctx.fillStyle = 'rgba(10, 12, 18, 0.42)';
-    for (let i = 0; i < 8; i++) {
-        const hx = ((i * 290 - game.cameraX * 0.22) % (VIEW_WIDTH + 320)) - 140;
-        const hh = 140 + ((i * 47 + stage.id * 19) % 120);
+    ctx.save();
+    // Menara Katedral Belakang Benteng dengan Kaca Patri Mawar Menyala
+    ctx.fillStyle = '#1b1d26';
+    ctx.fillRect(-20, 110, 170, GROUND_Y - 110);
+    ctx.beginPath();
+    ctx.moveTo(-28, 110);
+    ctx.lineTo(65, 20);
+    ctx.lineTo(158, 110);
+    ctx.closePath();
+    ctx.fill();
+    // Kaca Patri Mawar Emas
+    const roseGrad = ctx.createRadialGradient(65, 195, 4, 65, 195, 36);
+    roseGrad.addColorStop(0, '#fef08a');
+    roseGrad.addColorStop(0.55, '#d97706');
+    roseGrad.addColorStop(1, '#451a03');
+    ctx.fillStyle = roseGrad;
+    ctx.beginPath();
+    ctx.arc(65, 195, 30, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#1b1d26';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(65, 165); ctx.lineTo(65, 225);
+    ctx.moveTo(35, 195); ctx.lineTo(95, 195);
+    ctx.stroke();
+
+    // Ketapel Api Benteng (Jika Berkah Trebuchet Aktif!)
+    if (getBlessingLevel('trebuchet') > 0) {
+        ctx.save();
+        ctx.translate(105, 345);
+        ctx.strokeStyle = '#78350f';
+        ctx.lineWidth = 6;
         ctx.beginPath();
-        ctx.moveTo(hx - 140, 620);
-        ctx.lineTo(hx, 620 - hh);
-        ctx.lineTo(hx + 160, 620);
+        ctx.moveTo(-26, 0); ctx.lineTo(0, -48); ctx.lineTo(26, 0);
+        ctx.stroke();
+        const armAng = game.trebuchetAnim > 0 ? -0.95 : 0.45;
+        ctx.rotate(armAng);
+        ctx.strokeStyle = '#92400e';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(-26, -24); ctx.lineTo(44, -44);
+        ctx.stroke();
+        ctx.fillStyle = '#f97316';
+        ctx.beginPath();
+        ctx.arc(44, -44, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Dinding Benteng Utama & Parapet Crenellation
+    const wallGrad = ctx.createLinearGradient(0, 340, GATE_X, 340);
+    wallGrad.addColorStop(0, '#262934');
+    wallGrad.addColorStop(1, '#3a3e4d');
+    ctx.fillStyle = wallGrad;
+    ctx.fillRect(-20, 345, GATE_X + 20, GROUND_Y - 345);
+
+    // Tekstur batu blok dinding benteng
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.34)';
+    ctx.lineWidth = 1.4;
+    for (let y = 375; y < GROUND_Y; y += 34) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(GATE_X, y);
+        ctx.stroke();
+    }
+    // Gigi Tembok Benteng (Merlons)
+    ctx.fillStyle = '#474c5e';
+    for (let bx = 0; bx < GATE_X; bx += 36) {
+        ctx.fillRect(bx, 324, 22, 24);
+    }
+
+    // Panji Merah-Emas Kerajaan Berkibar di Dinding Benteng
+    const bWave = Math.sin(game.worldTick * 0.1) * 5;
+    ctx.fillStyle = '#991b1b';
+    ctx.beginPath();
+    ctx.moveTo(155, 365);
+    ctx.lineTo(188, 365);
+    ctx.lineTo(188 + bWave, 442);
+    ctx.lineTo(172 + bWave, 428);
+    ctx.lineTo(155 + bWave * 0.6, 442);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#f8d274';
+    ctx.fillRect(169, 378, 4, 32);
+    ctx.fillRect(161, 388, 20, 4);
+
+    // GERBANG BENTENG EK & BESI (Sasaran Zombie!)
+    const gShake = game.gateHitFlash > 0 ? (Math.random() - 0.5) * 5 : 0;
+    ctx.save();
+    ctx.translate(gShake, 0);
+    ctx.fillStyle = game.gateHitFlash > 0 ? '#7f1d1d' : '#4a2c18';
+    ctx.beginPath();
+    ctx.roundRect(GATE_X - 42, GROUND_Y - 134, 44, 134, [20, 4, 0, 0]);
+    ctx.fill();
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    // Pita Besi & Paku Keling Gerbang
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(GATE_X - 40, GROUND_Y - 102, 42, 8);
+    ctx.fillRect(GATE_X - 40, GROUND_Y - 56, 42, 8);
+    // Retakan gerbang jika HP < 65%
+    if (gateRatio < 0.65) {
+        ctx.strokeStyle = '#090a0d';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(GATE_X - 10, GROUND_Y - 110);
+        ctx.lineTo(GATE_X - 24, GROUND_Y - 78);
+        ctx.lineTo(GATE_X - 14, GROUND_Y - 40);
+        ctx.stroke();
+    }
+    ctx.restore();
+
+    // Pemanah Kerajaan (Allied Archers) berjaga di atas Parapet!
+    const archerCount = game.allies.archers;
+    for (let i = 0; i < archerCount; i++) {
+        const ax = Math.max(24, GATE_X - 28 - i * 36);
+        const ay = 345;
+        // Tubuh pemanah
+        ctx.fillStyle = '#1e3a8a';
+        ctx.fillRect(ax - 7, ay - 26, 14, 24);
+        ctx.fillStyle = '#cbd5e1';
+        ctx.beginPath();
+        ctx.arc(ax, ay - 32, 7, 0, Math.PI * 2);
+        ctx.fill();
+        // Busur Emas
+        ctx.strokeStyle = '#f8d274';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.arc(ax + 8, ay - 20, 11, -Math.PI * 0.45, Math.PI * 0.45);
+        ctx.stroke();
+    }
+
+    ctx.restore();
+}
+
+function drawCourtyardAndProps(ctx) {
+    // 1. Pagar Besi Kuburan Latar Belakang di Sepanjang Jalan
+    ctx.save();
+    ctx.strokeStyle = 'rgba(20, 22, 28, 0.86)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(GATE_X, GROUND_Y - 34);
+    ctx.lineTo(WORLD_WIDTH, GROUND_Y - 34);
+    ctx.stroke();
+    for (let fx = GATE_X + 24; fx < WORLD_WIDTH; fx += 28) {
+        if (fx < game.cameraX - 40 || fx > game.cameraX + VIEW_WIDTH + 40) continue;
+        ctx.beginPath();
+        ctx.moveTo(fx, GROUND_Y);
+        ctx.lineTo(fx, GROUND_Y - 46);
+        ctx.stroke();
+    }
+    ctx.restore();
+
+    // 2. Platform Menara Kayu & Jembatan Batu (dengan Tiang Penopang Realistis!)
+    for (const p of ARENA_PLATFORMS) {
+        if (p.x + p.w < game.cameraX - 60 || p.x > game.cameraX + VIEW_WIDTH + 60) continue;
+        if (p.style === 'wood') {
+            // Tiang penyangga kayu silang
+            ctx.strokeStyle = '#3b2415';
+            ctx.lineWidth = 7;
+            ctx.beginPath();
+            ctx.moveTo(p.x + 18, p.y + p.h); ctx.lineTo(p.x + 18, GROUND_Y);
+            ctx.moveTo(p.x + p.w - 18, p.y + p.h); ctx.lineTo(p.x + p.w - 18, GROUND_Y);
+            ctx.lineWidth = 4;
+            ctx.moveTo(p.x + 18, p.y + p.h + 10); ctx.lineTo(p.x + p.w - 18, GROUND_Y - 10);
+            ctx.moveTo(p.x + p.w - 18, p.y + p.h + 10); ctx.lineTo(p.x + 18, GROUND_Y - 10);
+            ctx.stroke();
+            // Papan kayu atas
+            ctx.fillStyle = '#5c3822';
+            ctx.fillRect(p.x, p.y, p.w, p.h);
+            ctx.fillStyle = '#855331';
+            ctx.fillRect(p.x, p.y, p.w, 6);
+        } else {
+            // Pilar batu lengkung gotik
+            ctx.fillStyle = '#252832';
+            ctx.fillRect(p.x + 16, p.y + p.h, 28, GROUND_Y - (p.y + p.h));
+            ctx.fillRect(p.x + p.w - 44, p.y + p.h, 28, GROUND_Y - (p.y + p.h));
+            ctx.fillStyle = '#363b47';
+            ctx.fillRect(p.x, p.y, p.w, p.h);
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(p.x, p.y, p.w, 6);
+        }
+    }
+
+    // 3. Obor Besi & Cahaya Api Additive ('lighter') di Sepanjang Halaman!
+    for (let tx = GATE_X + 120; tx < WORLD_WIDTH - 100; tx += 340) {
+        if (tx < game.cameraX - 110 || tx > game.cameraX + VIEW_WIDTH + 110) continue;
+        const fl = Math.sin(game.worldTick * 0.25 + tx * 0.04) * 4;
+        ctx.fillStyle = '#262322';
+        ctx.fillRect(tx - 3.5, GROUND_Y - 58, 7, 58);
+        ctx.fillStyle = '#44403c';
+        ctx.fillRect(tx - 12, GROUND_Y - 62, 24, 7);
+
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const glow = ctx.createRadialGradient(tx, GROUND_Y - 66, 4, tx, GROUND_Y - 66, 98 + fl);
+        glow.addColorStop(0, 'rgba(251, 146, 60, 0.34)');
+        glow.addColorStop(0.5, 'rgba(234, 88, 12, 0.1)');
+        glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(tx, GROUND_Y - 66, 98 + fl, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.fillStyle = '#f97316';
+        ctx.beginPath();
+        ctx.moveTo(tx - 9, GROUND_Y - 62);
+        ctx.quadraticCurveTo(tx, GROUND_Y - 88 - fl, tx + 9, GROUND_Y - 62);
+        ctx.fill();
+        ctx.fillStyle = '#fef08a';
+        ctx.beginPath();
+        ctx.moveTo(tx - 4.5, GROUND_Y - 62);
+        ctx.quadraticCurveTo(tx, GROUND_Y - 76 - fl * 0.6, tx + 4.5, GROUND_Y - 62);
+        ctx.fill();
+    }
+
+    // 4. Jalan Batu Cobblestone 2.5D
+    const roadGrad = ctx.createLinearGradient(0, GROUND_Y, 0, VIEW_HEIGHT);
+    roadGrad.addColorStop(0, '#36363d');
+    roadGrad.addColorStop(0.14, '#24242a');
+    roadGrad.addColorStop(1, '#101116');
+    ctx.fillStyle = roadGrad;
+    ctx.fillRect(0, GROUND_Y, WORLD_WIDTH, VIEW_HEIGHT - GROUND_Y);
+
+    // Batu Ubin Perspektif & Sorotan Tepi Jalan
+    ctx.fillStyle = '#52525b';
+    ctx.fillRect(0, GROUND_Y, WORLD_WIDTH, 5);
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.42)';
+    ctx.lineWidth = 1.4;
+    for (let sx = 0; sx < WORLD_WIDTH; sx += 56) {
+        if (sx < game.cameraX - 60 || sx > game.cameraX + VIEW_WIDTH + 60) continue;
+        ctx.strokeRect(sx, GROUND_Y + 5, 56, 22);
+        ctx.strokeRect(sx + 24, GROUND_Y + 27, 56, 26);
+    }
+
+    // 5. Tong Minyak Peledak (Explosive Oil Barrels)
+    for (const b of barrels) {
+        if (b.exploded) continue;
+        ctx.fillStyle = '#7c2d12';
+        ctx.beginPath();
+        ctx.roundRect(b.x, b.y, b.w, b.h, 7);
+        ctx.fill();
+        ctx.strokeStyle = '#dc2626';
+        ctx.lineWidth = 2.4;
+        ctx.stroke();
+        // Pita besi hitam & ikon api kuning
+        ctx.fillStyle = '#1c1917';
+        ctx.fillRect(b.x, b.y + 10, b.w, 6);
+        ctx.fillRect(b.x, b.y + b.h - 16, b.w, 6);
+        ctx.fillStyle = '#fde047';
+        ctx.beginPath();
+        ctx.moveTo(b.x + b.w / 2, b.y + 18);
+        ctx.lineTo(b.x + b.w / 2 + 7, b.y + 31);
+        ctx.lineTo(b.x + b.w / 2 - 7, b.y + 31);
         ctx.closePath();
         ctx.fill();
     }
 
-    // Siluet arsitektur menengah sesuai bioma (parallax 0.48)
-    for (let i = 0; i < bgProps.length; i++) {
-        const prop = bgProps[i];
-        const px = prop.x - game.cameraX * 0.48;
-        if (px < -140 || px > VIEW_WIDTH + 140) continue;
-
-        ctx.fillStyle = 'rgba(12, 14, 20, 0.62)';
-        if (theme === 'graveyard' || theme === 'cursed_woods') {
-            // Batu nisan salib & pohon mati gothic
-            if (prop.variant === 0) {
-                ctx.fillRect(px + 12, 610 - 66, 32, 66);
-                ctx.beginPath();
-                ctx.arc(px + 28, 610 - 66, 16, Math.PI, 0);
-                ctx.fill();
-                ctx.fillStyle = 'rgba(217, 169, 78, 0.2)';
-                ctx.fillRect(px + 26, 610 - 54, 4, 24);
-                ctx.fillRect(px + 19, 610 - 46, 18, 4);
-            } else {
-                ctx.fillRect(px + 16, 610 - prop.h, 16, prop.h);
-                ctx.beginPath();
-                ctx.moveTo(px + 24, 610 - prop.h + 26);
-                ctx.lineTo(px - 18, 610 - prop.h - 14);
-                ctx.lineTo(px - 12, 610 - prop.h - 20);
-                ctx.lineTo(px + 24, 610 - prop.h + 12);
-                ctx.fill();
-                ctx.beginPath();
-                ctx.moveTo(px + 24, 610 - prop.h + 40);
-                ctx.lineTo(px + 66, 610 - prop.h + 4);
-                ctx.lineTo(px + 60, 610 - prop.h - 4);
-                ctx.lineTo(px + 24, 610 - prop.h + 26);
-                ctx.fill();
-            }
-        } else if (theme === 'village') {
-            // Rumah desa kayu terbakar & cerobong asap
-            const rh = 110 + (prop.h % 70);
-            ctx.fillRect(px, 610 - rh, prop.w + 30, rh);
+    // 6. Cakar Kubur Nekromanser (Grave-Hands)
+    for (const gh of graveHands) {
+        if (gh.timer > 16) {
+            // Lingkaran peringatan hijau menyala di tanah
+            const pulse = 0.4 + Math.sin(gh.timer * 0.5) * 0.35;
+            ctx.strokeStyle = `rgba(45, 212, 191, ${pulse})`;
+            ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.moveTo(px - 10, 610 - rh);
-            ctx.lineTo(px + (prop.w + 30) / 2, 610 - rh - 44);
-            ctx.lineTo(px + prop.w + 40, 610 - rh);
-            ctx.closePath();
-            ctx.fill();
-            // Jendela menyala bara api
-            ctx.fillStyle = 'rgba(251, 146, 60, 0.45)';
-            ctx.fillRect(px + 14, 610 - rh + 24, 14, 18);
-            ctx.fillRect(px + 38, 610 - rh + 24, 14, 18);
-        } else if (theme === 'cathedral' || theme === 'eclipse_temple' || theme === 'lich_throne') {
-            // Pilar katedral lengkung & menara runcing
-            ctx.fillRect(px, 610 - prop.h, prop.w * 0.72, prop.h);
-            ctx.beginPath();
-            ctx.moveTo(px - 4, 610 - prop.h);
-            ctx.lineTo(px + prop.w * 0.36, 610 - prop.h - 52);
-            ctx.lineTo(px + prop.w * 0.72 + 4, 610 - prop.h);
-            ctx.closePath();
-            ctx.fill();
-            // Jendela kaca patri emas/merah
-            ctx.fillStyle = theme === 'lich_throne' ? 'rgba(246, 204, 104, 0.3)' : 'rgba(239, 68, 68, 0.25)';
-            ctx.beginPath();
-            ctx.arc(px + prop.w * 0.36, 610 - prop.h + 44, 10, Math.PI, 0);
-            ctx.lineTo(px + prop.w * 0.36 + 10, 610 - prop.h + 78);
-            ctx.lineTo(px + prop.w * 0.36 - 10, 610 - prop.h + 78);
-            ctx.closePath();
-            ctx.fill();
-        } else if (theme === 'frozen_crypt') {
-            // Pilar kristal es
-            ctx.fillStyle = 'rgba(56, 189, 248, 0.16)';
-            ctx.beginPath();
-            ctx.moveTo(px, 610);
-            ctx.lineTo(px + prop.w * 0.45, 610 - prop.h);
-            ctx.lineTo(px + prop.w * 0.9, 610);
-            ctx.closePath();
-            ctx.fill();
+            ctx.ellipse(gh.x, GROUND_Y - 2, 30, 9, 0, 0, Math.PI * 2);
+            ctx.stroke();
         } else {
-            // Pilar benteng, obelisk nekromansi, & reruntuhan
-            ctx.fillRect(px, 610 - prop.h, prop.w * 0.62, prop.h);
-            ctx.fillStyle = stage.ambientColor;
-            ctx.globalAlpha = 0.22;
-            ctx.fillRect(px + prop.w * 0.24, 610 - prop.h + 18, 6, prop.h * 0.45);
-            ctx.globalAlpha = 1;
+            // Cakar tengkorak mencuat ke atas!
+            const h = Math.sin((16 - gh.timer) / 16 * Math.PI) * 76;
+            ctx.fillStyle = '#2dd4bf';
+            ctx.fillRect(gh.x - 10, GROUND_Y - h, 7, h);
+            ctx.fillRect(gh.x + 2, GROUND_Y - h * 0.9, 7, h * 0.9);
+            ctx.fillStyle = '#e7e5e4';
+            ctx.beginPath();
+            ctx.moveTo(gh.x - 14, GROUND_Y - h);
+            ctx.lineTo(gh.x - 6, GROUND_Y - h - 18);
+            ctx.lineTo(gh.x + 12, GROUND_Y - h - 14);
+            ctx.lineTo(gh.x + 14, GROUND_Y - h);
+            ctx.closePath();
+            ctx.fill();
+        }
+    }
+}
+
+function drawCavalryRiders(ctx) {
+    for (const r of cavalryRiders) {
+        const gallop = Math.sin(game.worldTick * 0.45 + r.phase) * 7;
+        ctx.save();
+        ctx.translate(r.x + r.w / 2, r.y + r.h);
+
+        // Aura Cahaya Spektral Emas (Additive!)
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const aura = ctx.createRadialGradient(0, -40, 8, 0, -40, 74);
+        aura.addColorStop(0, 'rgba(254, 240, 138, 0.52)');
+        aura.addColorStop(1, 'rgba(245, 158, 11, 0)');
+        ctx.fillStyle = aura;
+        ctx.beginPath();
+        ctx.arc(0, -40, 74, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Kuda Perang Berzirah Emas
+        ctx.fillStyle = 'rgba(254, 240, 138, 0.92)';
+        ctx.beginPath();
+        ctx.roundRect(-36, -50 + gallop * 0.3, 66, 26, 10);
+        ctx.fill();
+        // Leher & Kepala Kuda
+        ctx.beginPath();
+        ctx.moveTo(18, -46 + gallop * 0.3);
+        ctx.lineTo(40, -70 + gallop * 0.2);
+        ctx.lineTo(52, -56 + gallop * 0.2);
+        ctx.lineTo(30, -34 + gallop * 0.3);
+        ctx.closePath();
+        ctx.fill();
+        // Kaki Kuda Berderap
+        ctx.strokeStyle = '#fde047';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(-26, -26); ctx.lineTo(-34 - gallop, 0);
+        ctx.moveTo(20, -26); ctx.lineTo(32 + gallop, 0);
+        ctx.stroke();
+
+        // Kesatria Kavaleri + Tombak Panjang Berapi
+        ctx.fillStyle = '#fffbeb';
+        ctx.fillRect(-10, -78 + gallop * 0.3, 20, 32);
+        ctx.beginPath();
+        ctx.arc(0, -86 + gallop * 0.3, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#dc2626';
+        ctx.beginPath();
+        ctx.moveTo(-8, -74); ctx.lineTo(-48, -62 + gallop); ctx.lineTo(-36, -48 + gallop); ctx.closePath();
+        ctx.fill();
+        // Tombak Kavaleri
+        ctx.fillStyle = '#fde047';
+        ctx.fillRect(0, -68 + gallop * 0.3, 76, 5);
+
+        ctx.restore();
+    }
+}
+
+function drawWeatherAndForeground(ctx, cfg) {
+    // Partikel Cuaca
+    ctx.save();
+    const w = cfg.weather || 'mist';
+    const col = w === 'storm'
+        ? 'rgba(147, 197, 253, 0.44)'
+        : (w === 'snow' ? 'rgba(224, 242, 254, 0.65)' : (w === 'ember' ? 'rgba(251, 146, 60, 0.55)' : (w === 'spore' ? 'rgba(163, 230, 53, 0.44)' : 'rgba(248, 210, 116, 0.4)')));
+    ctx.fillStyle = col;
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 1.5;
+
+    for (const pt of WEATHER_PTS) {
+        if (w === 'storm') { pt.x -= 4.6; pt.y += 12; }
+        else if (w === 'ember') { pt.x += Math.sin(game.worldTick * 0.03 + pt.ph) * 0.8; pt.y -= 1.6; }
+        else if (w === 'snow') { pt.x += Math.sin(game.worldTick * 0.03 + pt.ph) * 0.8 - 0.5; pt.y += 1.5; }
+        else { pt.x -= 0.45; pt.y += Math.sin(game.worldTick * 0.02 + pt.ph) * 0.3; }
+
+        if (pt.x < -10) pt.x = VIEW_WIDTH + 8;
+        if (pt.x > VIEW_WIDTH + 10) pt.x = -8;
+        if (pt.y < -10) pt.y = VIEW_HEIGHT + 8;
+        if (pt.y > VIEW_HEIGHT + 10) pt.y = -8;
+
+        if (w === 'storm') {
+            ctx.beginPath();
+            ctx.moveTo(pt.x, pt.y);
+            ctx.lineTo(pt.x - 5, pt.y + 14);
+            ctx.stroke();
+        } else {
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, pt.sz, 0, Math.PI * 2);
+            ctx.fill();
         }
     }
     ctx.restore();
-}
 
-function drawStageRadar(ctx, stage) {
-    if (!player || game.state !== 'playing') return;
-    const rw = 260;
-    const rh = 12;
-    const rx = (VIEW_WIDTH - rw) / 2;
-    const ry = VIEW_HEIGHT - 26;
-    const worldW = Math.max(1, stage.worldWidth);
-
+    // Siluet Depan Rumput & Pagar Bawah (Parallax 1.25 — Efek Kedalaman 2.5D!)
     ctx.save();
-    ctx.fillStyle = 'rgba(12, 14, 20, 0.78)';
-    ctx.strokeStyle = 'rgba(217, 169, 78, 0.42)';
-    ctx.lineWidth = 1.4;
-    ctx.beginPath();
-    ctx.roundRect(rx - 8, ry - 6, rw + 16, rh + 12, 9);
-    ctx.fill();
-    ctx.stroke();
-
-    // Garis lintasan
-    ctx.fillStyle = 'rgba(168, 162, 158, 0.25)';
-    ctx.fillRect(rx, ry + rh / 2 - 1.5, rw, 3);
-
-    // Checkpoint (biru-emas)
-    for (const cp of checkpoints) {
-        const x = rx + (cp.x / worldW) * rw;
-        ctx.fillStyle = cp.activated ? '#38bdf8' : '#78716c';
-        ctx.fillRect(x - 2, ry + 1, 4, rh - 2);
-    }
-
-    // Peti Relik belum dibuka (emas)
-    for (const ch of chests) {
-        if (ch.opened) continue;
-        const x = rx + (ch.x / worldW) * rw;
-        ctx.fillStyle = '#facc15';
-        ctx.fillRect(x - 2.5, ry + 2, 5, 5);
-    }
-
-    // Zombie hidup (hijau wabah) & Boss (merah besar)
-    for (const en of enemies) {
-        if (en.dead) continue;
-        const x = rx + ((en.x + en.w / 2) / worldW) * rw;
-        ctx.fillStyle = en.isBoss ? '#ef4444' : '#84cc16';
+    ctx.fillStyle = 'rgba(7, 8, 12, 0.72)';
+    for (let i = 0; i < 16; i++) {
+        const fx = ((i * 145 - game.cameraX * 1.25) % (VIEW_WIDTH + 180) + (VIEW_WIDTH + 180)) % (VIEW_WIDTH + 180) - 60;
         ctx.beginPath();
-        ctx.arc(x, ry + rh / 2, en.isBoss ? 4.8 : 2.6, 0, Math.PI * 2);
+        ctx.moveTo(fx, VIEW_HEIGHT);
+        ctx.lineTo(fx + 10, VIEW_HEIGHT - 30 - (i % 3) * 10);
+        ctx.lineTo(fx + 22, VIEW_HEIGHT);
+        ctx.closePath();
         ctx.fill();
     }
-
-    // Gerbang Suci / Portal
-    const px = rx + (stage.portalX / worldW) * rw;
-    ctx.fillStyle = '#fde047';
-    ctx.beginPath();
-    ctx.arc(px, ry + rh / 2, 4.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Posisi Kesatria (Panah Emas Putih)
-    const kx = rx + ((player.x + player.w / 2) / worldW) * rw;
-    ctx.fillStyle = '#ffffff';
-    ctx.strokeStyle = '#d9a03b';
-    ctx.lineWidth = 1.6;
-    ctx.beginPath();
-    ctx.arc(kx, ry + rh / 2, 4.6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
     ctx.restore();
+
+    // Vignette Merah Halus saat Sir Aldric / Gerbang Terkena Serangan
+    if (game.hurtVignette > 0) {
+        const a = (game.hurtVignette / 18) * 0.34;
+        const vg = ctx.createRadialGradient(VIEW_WIDTH / 2, VIEW_HEIGHT / 2, 260, VIEW_WIDTH / 2, VIEW_HEIGHT / 2, 720);
+        vg.addColorStop(0, 'rgba(0,0,0,0)');
+        vg.addColorStop(1, `rgba(185, 28, 28, ${a})`);
+        ctx.fillStyle = vg;
+        ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
+    }
 }
 
 function drawGame() {
-    const stage = STAGES[game.stageIndex];
-    if (!stage) return;
-
-    drawSkyAndMoon(ctx, stage);
-    drawWeather(ctx, stage);
+    const cfg = getNightConfig(game.night);
+    drawSkyLayer(ctx, cfg);
+    drawHorizonAndCathedralBg(ctx);
 
     ctx.save();
     if (game.screenShake > 0) {
@@ -320,310 +593,142 @@ function drawGame() {
         );
     }
 
-    drawParallaxProps(ctx, stage);
-
-    // Kamera Dunia
     ctx.save();
     ctx.translate(-Math.round(game.cameraX), 0);
 
-    // 1. Platform & Tanah dengan Tekstur Batu Bata & Obor Gothic
-    for (let pi = 0; pi < stage.platforms.length; pi++) {
-        const plat = stage.platforms[pi];
-        if (plat.x + plat.w < game.cameraX - 100 || plat.x > game.cameraX + VIEW_WIDTH + 100) continue;
+    drawCitadelFortress(ctx);
+    drawCourtyardAndProps(ctx);
 
-        ctx.fillStyle = plat.type === 'ground' ? stage.groundColor : stage.platColor;
-        ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
-
-        // Tekstur batu bata dua baris dengan bayangan halus
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.28)';
-        ctx.lineWidth = 1;
-        if (plat.h >= 36) {
-            ctx.beginPath();
-            ctx.moveTo(plat.x, plat.y + 30);
-            ctx.lineTo(plat.x + plat.w, plat.y + 30);
-            ctx.stroke();
-        }
-        for (let bx = plat.x + 28; bx < plat.x + plat.w; bx += 42) {
-            ctx.beginPath();
-            ctx.moveTo(bx, plat.y + 9);
-            ctx.lineTo(bx, plat.y + Math.min(plat.h, 30));
-            ctx.stroke();
-        }
-
-        // Lapisan atas (rumput/batu/es/emas) + sorotan tepi atas
-        ctx.fillStyle = plat.type === 'moving' ? '#d9a03b' : (plat.type === 'ground' ? stage.groundTop : stage.platTop);
-        ctx.fillRect(plat.x, plat.y, plat.w, plat.type === 'ground' ? 10 : 7);
-        ctx.fillStyle = 'rgba(255, 251, 235, 0.14)';
-        ctx.fillRect(plat.x, plat.y, plat.w, 2);
-
-        if (plat.type === 'moving') {
-            ctx.fillStyle = '#fef3c7';
-            ctx.fillRect(plat.x + 8, plat.y + 10, 5, 5);
-            ctx.fillRect(plat.x + plat.w - 13, plat.y + 10, 5, 5);
-        }
-
-        // Obor besi Gothic berkedip di segmen daratan lebar
-        if (plat.type === 'ground' && plat.w >= 520) {
-            const torchStep = 460;
-            for (let tx = plat.x + 175; tx < plat.x + plat.w - 160; tx += torchStep) {
-                if (tx < game.cameraX - 90 || tx > game.cameraX + VIEW_WIDTH + 90) continue;
-                const flick = Math.sin(game.worldTick * 0.24 + tx * 0.05) * 3.5;
-                // Cahaya obor hangat (radial glow)
-                const tg = ctx.createRadialGradient(tx, plat.y - 44, 4, tx, plat.y - 44, 68 + flick);
-                tg.addColorStop(0, 'rgba(251, 146, 60, 0.28)');
-                tg.addColorStop(0.5, 'rgba(245, 158, 11, 0.08)');
-                tg.addColorStop(1, 'rgba(0, 0, 0, 0)');
-                ctx.fillStyle = tg;
-                ctx.beginPath();
-                ctx.arc(tx, plat.y - 44, 68 + flick, 0, Math.PI * 2);
-                ctx.fill();
-                // Tiang besi & mangkuk api
-                ctx.fillStyle = '#292524';
-                ctx.fillRect(tx - 2.5, plat.y - 40, 5, 40);
-                ctx.fillStyle = '#57534e';
-                ctx.fillRect(tx - 8, plat.y - 42, 16, 5);
-                // Lidah api
-                ctx.fillStyle = '#f97316';
-                ctx.beginPath();
-                ctx.moveTo(tx - 6, plat.y - 42);
-                ctx.quadraticCurveTo(tx, plat.y - 60 - flick, tx + 6, plat.y - 42);
-                ctx.fill();
-                ctx.fillStyle = '#fef08a';
-                ctx.beginPath();
-                ctx.moveTo(tx - 3, plat.y - 42);
-                ctx.quadraticCurveTo(tx, plat.y - 52 - flick * 0.6, tx + 3, plat.y - 42);
-                ctx.fill();
-            }
-        }
-    }
-
-    // 2. Jebakan Duri Tulang (Bone Spikes)
-    for (const sp of stage.spikes) {
-        if (sp.x + sp.w < game.cameraX - 40 || sp.x > game.cameraX + VIEW_WIDTH + 40) continue;
-        const count = Math.max(3, Math.floor(sp.w / 14));
-        const sw = sp.w / count;
-        ctx.fillStyle = '#d6d3d1';
-        ctx.strokeStyle = '#7f1d1d';
-        ctx.lineWidth = 1.2;
-        for (let i = 0; i < count; i++) {
-            const sx = sp.x + i * sw;
-            ctx.beginPath();
-            ctx.moveTo(sx + 1, sp.y + sp.h);
-            ctx.lineTo(sx + sw / 2, sp.y);
-            ctx.lineTo(sx + sw - 1, sp.y + sp.h);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-        }
-    }
-
-    // 3. Batu Pegas Suci (Holy Springs)
-    if (stage.springs) {
-        for (const sp of stage.springs) {
-            if (sp.x + sp.w < game.cameraX - 40 || sp.x > game.cameraX + VIEW_WIDTH + 40) continue;
-            const bounceOff = sp._bounce > 0 ? Math.sin(sp._bounce * 0.5) * 6 : 0;
-            ctx.fillStyle = '#292524';
-            ctx.fillRect(sp.x, sp.y + 6, sp.w, sp.h - 6);
-            ctx.fillStyle = '#f6cc68';
-            ctx.fillRect(sp.x - 2, sp.y - bounceOff, sp.w + 4, 8);
-            ctx.fillStyle = '#fffbeb';
-            ctx.fillRect(sp.x + 6, sp.y + 2 - bounceOff, sp.w - 12, 3);
-        }
-    }
-
-    // 4. Api Unggun Checkpoint (Sacred Bonfires)
-    for (const cp of checkpoints) {
-        const fx = cp.x;
-        const fy = cp.y;
-        // Pedang tertancap di batu
-        ctx.fillStyle = '#57534e';
-        ctx.beginPath();
-        ctx.ellipse(fx, fy - 4, 18, 7, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = cp.activated ? '#fde047' : '#94a3b8';
-        ctx.fillRect(fx - 2.5, fy - 44, 5, 40);
-        ctx.fillRect(fx - 10, fy - 34, 20, 4);
-        if (cp.activated) {
-            const flick = Math.sin(game.worldTick * 0.3) * 4;
-            ctx.fillStyle = 'rgba(251, 146, 60, 0.85)';
-            ctx.beginPath();
-            ctx.moveTo(fx - 12, fy - 6);
-            ctx.quadraticCurveTo(fx, fy - 36 - flick, fx + 12, fy - 6);
-            ctx.fill();
-            ctx.fillStyle = 'rgba(254, 240, 138, 0.9)';
-            ctx.beginPath();
-            ctx.moveTo(fx - 6, fy - 6);
-            ctx.quadraticCurveTo(fx, fy - 24 - flick * 0.6, fx + 6, fy - 6);
-            ctx.fill();
-        }
-    }
-
-    // 5. Peti Relik (Treasure Chests)
-    for (const ch of chests) {
-        ctx.fillStyle = ch.opened ? '#44403c' : '#78350f';
-        ctx.fillRect(ch.x, ch.y, ch.w, ch.h);
-        ctx.strokeStyle = ch.opened ? '#78716c' : '#f6cc68';
-        ctx.lineWidth = 2.4;
-        ctx.strokeRect(ch.x, ch.y, ch.w, ch.h);
-        ctx.fillStyle = ch.opened ? '#a8a29e' : '#fde047';
-        ctx.fillRect(ch.x + ch.w / 2 - 4, ch.y + 10, 8, 9);
-        if (!ch.opened) {
-            ctx.fillStyle = `rgba(253, 224, 71, ${0.18 + Math.sin(game.worldTick * 0.1) * 0.12})`;
-            ctx.beginPath();
-            ctx.arc(ch.x + ch.w / 2, ch.y + ch.h / 2, 28, 0, Math.PI * 2);
-            ctx.fill();
-        }
-    }
-
-    // 6. Gerbang Suci / Portal Akhir Stage
-    const bossAlive = enemies.some(e => e.isBoss && !e.dead);
-    const px = stage.portalX;
-    const py = stage.portalY;
-    ctx.save();
-    ctx.translate(px + 28, py + 52);
-    // Lengkungan batu gerbang
-    ctx.strokeStyle = bossAlive ? '#57534e' : '#f6cc68';
-    ctx.lineWidth = 7;
-    ctx.beginPath();
-    ctx.arc(0, 0, 38, Math.PI, 0);
-    ctx.lineTo(38, 52);
-    ctx.moveTo(-38, 0);
-    ctx.lineTo(-38, 52);
-    ctx.stroke();
-
-    // Pusaran cahaya suci di dalam gerbang
-    const pPulse = 0.55 + Math.sin(game.worldTick * 0.12) * 0.25;
-    ctx.fillStyle = bossAlive ? 'rgba(127, 29, 29, 0.35)' : `rgba(246, 204, 104, ${pPulse * 0.55})`;
-    ctx.beginPath();
-    ctx.ellipse(0, 12, 28, 42, 0, 0, Math.PI * 2);
-    ctx.fill();
-    if (!bossAlive) {
-        ctx.fillStyle = 'rgba(255, 251, 235, 0.8)';
-        ctx.beginPath();
-        ctx.ellipse(0, 12, 13, 26, 0, 0, Math.PI * 2);
-        ctx.fill();
-    }
-    ctx.restore();
-
-    // 7. Koin Emas Suci
+    // Koin Emas
     for (const c of coins) {
-        const spin = Math.abs(Math.cos(game.worldTick * 0.16 + c.x));
-        ctx.fillStyle = '#f6cc68';
+        const sp = Math.abs(Math.cos(game.worldTick * 0.16 + c.x));
+        ctx.fillStyle = '#f8d274';
         ctx.beginPath();
-        ctx.ellipse(c.x, c.y, Math.max(3, 8 * spin), 8, 0, 0, Math.PI * 2);
+        ctx.ellipse(c.x, c.y, Math.max(3, 8 * sp), 8, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = '#92400e';
         ctx.lineWidth = 1.4;
         ctx.stroke();
     }
 
-    // 8. Jejak Bayangan Serbuan Perisai (Afterimages)
-    for (const ai of afterimages) {
-        ctx.save();
-        ctx.globalAlpha = (ai.life / ai.maxLife) * 0.45;
-        ctx.fillStyle = ai.color;
-        ctx.beginPath();
-        ctx.roundRect(ai.x, ai.y, ai.w, ai.h, 8);
-        ctx.fill();
-        ctx.restore();
-    }
+    // Sekutu Pengawal Benteng
+    for (const al of allies) al.draw(ctx);
 
-    // 9. Musuh Zombie & Boss
-    for (const en of enemies) {
-        if (!en.dead && en.x + en.w > game.cameraX - 120 && en.x < game.cameraX + VIEW_WIDTH + 120) {
-            en.draw(ctx);
+    // Gerombolan Zombie & Boss
+    for (const z of zombies) {
+        if (!z.dead && z.x + z.w > game.cameraX - 150 && z.x < game.cameraX + VIEW_WIDTH + 150) {
+            z.draw(ctx);
         }
     }
 
-    // 10. Kesatria Cahaya (Sir Aldric)
-    if (player) player.draw(ctx);
+    // Sir Aldric — Kesatria Benteng
+    if (knight) knight.draw(ctx);
 
-    // 11. Proyektil Kesatria (Tombak Suci & Gelombang Cahaya Matahari)
-    for (const pp of playerProjectiles) {
+    // Barisan Kavaleri Fajar!
+    drawCavalryRiders(ctx);
+
+    // Proyektil Pahlawan (Palu Boomerang Berputar, Panah Api Pemanah, Batu Ketapel, Gelombang Api, Panah Pantul!)
+    for (const hp of heroProjectiles) {
         ctx.save();
-        ctx.translate(pp.x, pp.y);
-        if (pp.kind === 'dawn_wave') {
-            ctx.scale(pp.facing, 1);
-            ctx.strokeStyle = '#f6cc68';
-            ctx.lineWidth = 10;
-            ctx.beginPath();
-            ctx.arc(-10, 0, 48, -Math.PI * 0.42, Math.PI * 0.42);
-            ctx.stroke();
-            ctx.strokeStyle = '#fffbeb';
+        ctx.translate(hp.x, hp.y);
+        if (hp.kind === 'boomerang_hammer') {
+            ctx.rotate(hp.spin);
+            // Aura putaran emas
+            ctx.strokeStyle = 'rgba(253, 224, 71, 0.45)';
             ctx.lineWidth = 4;
             ctx.beginPath();
-            ctx.arc(-6, 0, 46, -Math.PI * 0.36, Math.PI * 0.36);
+            ctx.arc(0, 0, 22, 0, Math.PI * 2);
             ctx.stroke();
-        } else {
-            const ang = Math.atan2(pp.vy, pp.vx);
-            ctx.rotate(ang);
-            // Tombak Suci bercahaya emas-putih
-            ctx.fillStyle = pp.burn ? '#fde047' : '#f6cc68';
-            ctx.fillRect(-18, -2.2, 30, 4.4);
-            ctx.fillStyle = '#fffbeb';
+            // Gagang & Kepala Palu Perang Suci
+            ctx.fillStyle = '#78350f';
+            ctx.fillRect(-3.5, -18, 7, 36);
+            ctx.fillStyle = '#f8d274';
+            ctx.fillRect(-14, -20, 28, 13);
+            ctx.strokeStyle = '#fffbeb';
+            ctx.lineWidth = 1.6;
+            ctx.strokeRect(-14, -20, 28, 13);
+        } else if (hp.kind === 'arrow') {
+            ctx.rotate(Math.atan2(hp.vy, hp.vx));
+            ctx.fillStyle = '#f97316';
+            ctx.fillRect(-16, -2, 26, 4);
+            ctx.fillStyle = '#fef08a';
             ctx.beginPath();
-            ctx.moveTo(12, -6);
-            ctx.lineTo(24, 0);
-            ctx.lineTo(12, 6);
+            ctx.moveTo(10, -5); ctx.lineTo(20, 0); ctx.lineTo(10, 5); ctx.closePath();
+            ctx.fill();
+        } else if (hp.kind === 'boulder') {
+            ctx.fillStyle = '#44403c';
+            ctx.beginPath();
+            ctx.arc(0, 0, 16, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#f97316';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+        } else if (hp.kind === 'flame_wave') {
+            ctx.fillStyle = '#f97316';
+            ctx.beginPath();
+            ctx.moveTo(-20, 24);
+            ctx.quadraticCurveTo(0, -34, 20, 24);
             ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#fef08a';
+            ctx.beginPath();
+            ctx.moveTo(-10, 24);
+            ctx.quadraticCurveTo(0, -14, 10, 24);
+            ctx.closePath();
+            ctx.fill();
+        } else {
+            // Panah pantulan Parry Emas!
+            ctx.rotate(Math.atan2(hp.vy, hp.vx));
+            ctx.fillStyle = '#fde047';
+            ctx.fillRect(-18, -3, 30, 6);
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.moveTo(12, -7); ctx.lineTo(24, 0); ctx.lineTo(12, 7); ctx.closePath();
             ctx.fill();
         }
         ctx.restore();
     }
 
-    // 12. Proyektil Zombie & Boss
-    for (const p of projectiles) {
+    // Proyektil Musuh (Panah Crossbow & Bola Mantra)
+    for (const ep of enemyProjectiles) {
         ctx.save();
-        ctx.fillStyle = p.color || '#84cc16';
+        ctx.fillStyle = ep.color || '#a3e635';
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.arc(ep.x, ep.y, ep.r, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = '#ffffff';
         ctx.globalAlpha = 0.7;
         ctx.beginPath();
-        ctx.arc(p.x - p.r * 0.25, p.y - p.r * 0.25, p.r * 0.38, 0, Math.PI * 2);
+        ctx.arc(ep.x - 2, ep.y - 2, ep.r * 0.4, 0, Math.PI * 2);
         ctx.fill();
-        if (p.kind === 'bomb') {
-            ctx.globalAlpha = 0.55;
-            ctx.strokeStyle = '#ef4444';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.r + 4 + Math.sin(game.worldTick * 0.5) * 3, 0, Math.PI * 2);
-            ctx.stroke();
-        }
         ctx.restore();
     }
 
-    // 13. Cincin Kejut (Shock Rings)
+    // Shock Rings, Petir Langit, Partikel, & Teks Combat
     for (const sr of shockRings) {
         const t = 1 - sr.life / sr.maxLife;
-        const r = 10 + (sr.maxR - 10) * t;
         ctx.save();
         ctx.globalAlpha = Math.max(0, 1 - t);
         ctx.strokeStyle = sr.color;
         ctx.lineWidth = sr.lineW * (1 - t * 0.5);
         ctx.beginPath();
-        ctx.arc(sr.x, sr.y, r, 0, Math.PI * 2);
+        ctx.arc(sr.x, sr.y, 12 + (sr.maxR - 12) * t, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
     }
-
-    // 14. Halilintar Suci Zig-Zag (Relik II: Segel Petir Suci)
     for (const lb of lightningBolts) {
         ctx.save();
         ctx.globalAlpha = lb.life / lb.maxLife;
         ctx.strokeStyle = lb.color;
-        ctx.lineWidth = 5;
+        ctx.lineWidth = 6;
         ctx.beginPath();
-        lb.pts.forEach((pt, idx) => idx === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y));
+        lb.pts.forEach((p, idx) => idx === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
         ctx.stroke();
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.4;
         ctx.stroke();
         ctx.restore();
     }
-
-    // 15. Partikel Pertempuran
     for (const pt of particles) {
         ctx.save();
         ctx.globalAlpha = Math.max(0, pt.life / pt.maxLife);
@@ -631,14 +736,12 @@ function drawGame() {
         ctx.fillRect(pt.x - pt.size / 2, pt.y - pt.size / 2, pt.size, pt.size);
         ctx.restore();
     }
-
-    // 16. Teks Melayang (Damage / Crit / Perfect Parry)
     ctx.textAlign = 'center';
     for (const ft of floatingTexts) {
         ctx.save();
         ctx.globalAlpha = Math.max(0, ft.life / ft.maxLife);
         ctx.font = ft.big ? '900 20px "Plus Jakarta Sans", sans-serif' : '800 14px "Plus Jakarta Sans", sans-serif';
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.88)';
         ctx.lineWidth = 3.5;
         ctx.strokeText(ft.text, ft.x, ft.y);
         ctx.fillStyle = ft.color;
@@ -647,210 +750,153 @@ function drawGame() {
     }
 
     ctx.restore(); // tutup kamera
-    ctx.restore(); // tutup screenShake
+    ctx.restore(); // tutup shake
 
-    // 17. Radar Peta Progres Stage 2D di Bawah Layar
-    drawStageRadar(ctx, stage);
+    drawWeatherAndForeground(ctx, cfg);
 }
 
 /* ==========================================================================
-   ANIMASI CG ENDING 2D: FAJAR KERAJAAN CAHAYA
+   ANIMASI CG ENDING: FAJAR DI ATAS BENTENG CAHAYA
    ========================================================================== */
 function lerpRGB(c1, c2, t) {
-    const r = Math.round(c1[0] + (c2[0] - c1[0]) * t);
-    const g = Math.round(c1[1] + (c2[1] - c1[1]) * t);
-    const b = Math.round(c1[2] + (c2[2] - c1[2]) * t);
-    return `rgb(${r},${g},${b})`;
+    return `rgb(${Math.round(c1[0] + (c2[0] - c1[0]) * t)},${Math.round(c1[1] + (c2[1] - c1[1]) * t)},${Math.round(c1[2] + (c2[2] - c1[2]) * t)})`;
 }
 
 function drawEndingCG() {
     const t = Math.min(1, endingCG.frame / endingCG.totalFrames);
-    const sunProgress = Math.min(1, Math.max(0, (t - 0.08) / 0.72));
+    const sun = Math.min(1, Math.max(0, (t - 0.06) / 0.72));
 
-    // Langit berubah dari malam wabah menjadi fajar keemasan
-    const topCol = lerpRGB([10, 13, 24], [38, 78, 128], sunProgress);
-    const midCol = lerpRGB([28, 22, 34], [218, 126, 56], sunProgress);
-    const botCol = lerpRGB([40, 26, 24], [253, 224, 132], sunProgress);
     const grad = ctx.createLinearGradient(0, 0, 0, VIEW_HEIGHT);
-    grad.addColorStop(0, topCol);
-    grad.addColorStop(0.55, midCol);
-    grad.addColorStop(1, botCol);
+    grad.addColorStop(0, lerpRGB([14, 18, 32], [44, 90, 148], sun));
+    grad.addColorStop(0.54, lerpRGB([36, 26, 36], [226, 134, 62], sun));
+    grad.addColorStop(1, lerpRGB([46, 30, 26], [254, 232, 148], sun));
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
 
-    // Matahari Fajar Terbit + Sinar Radiasi & Corona Lembut
-    const sunX = VIEW_WIDTH * 0.63;
-    const sunY = VIEW_HEIGHT * 0.78 - sunProgress * 265;
-    ctx.save();
-    const corona = ctx.createRadialGradient(sunX, sunY, 30, sunX, sunY, 260);
-    corona.addColorStop(0, 'rgba(255, 251, 235, 0.92)');
-    corona.addColorStop(0.32, 'rgba(253, 224, 71, 0.42)');
+    const sx = VIEW_WIDTH * 0.7;
+    const sy = VIEW_HEIGHT * 0.76 - sun * 260;
+    const corona = ctx.createRadialGradient(sx, sy, 28, sx, sy, 270);
+    corona.addColorStop(0, 'rgba(255, 251, 235, 0.95)');
+    corona.addColorStop(0.35, 'rgba(253, 224, 71, 0.45)');
     corona.addColorStop(1, 'rgba(251, 146, 60, 0)');
     ctx.fillStyle = corona;
     ctx.beginPath();
-    ctx.arc(sunX, sunY, 260, 0, Math.PI * 2);
+    ctx.arc(sx, sy, 270, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.globalAlpha = 0.24 + sunProgress * 0.36;
+    // Sinar Fajar Radiasi
+    ctx.save();
+    ctx.globalAlpha = 0.22 + sun * 0.34;
     for (let i = 0; i < 12; i++) {
         const ang = (i / 12) * Math.PI * 2 + endingCG.frame * 0.004;
         ctx.fillStyle = 'rgba(254, 240, 138, 0.22)';
         ctx.beginPath();
-        ctx.moveTo(sunX, sunY);
-        ctx.lineTo(sunX + Math.cos(ang) * 950, sunY + Math.sin(ang) * 950);
-        ctx.lineTo(sunX + Math.cos(ang + 0.12) * 950, sunY + Math.sin(ang + 0.12) * 950);
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx + Math.cos(ang) * 950, sy + Math.sin(ang) * 950);
+        ctx.lineTo(sx + Math.cos(ang + 0.12) * 950, sy + Math.sin(ang + 0.12) * 950);
         ctx.closePath();
         ctx.fill();
     }
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = '#fffbeb';
-    ctx.beginPath();
-    ctx.arc(sunX, sunY, 52 + sunProgress * 15, 0, Math.PI * 2);
-    ctx.fill();
     ctx.restore();
 
-    // Siluet Pegunungan Jauh + Kastil Kerajaan Cahaya di Puncak Timur
-    ctx.fillStyle = lerpRGB([18, 20, 28], [58, 44, 48], sunProgress);
+    ctx.fillStyle = '#fffbeb';
+    ctx.beginPath();
+    ctx.arc(sx, sy, 54 + sun * 16, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Siluet Perbukitan Fajar
+    ctx.fillStyle = lerpRGB([18, 19, 26], [46, 38, 44], sun);
     ctx.beginPath();
     ctx.moveTo(0, VIEW_HEIGHT);
-    ctx.lineTo(0, 485);
-    ctx.lineTo(250, 405);
-    ctx.lineTo(480, 470);
-    ctx.lineTo(750, 392);
-    ctx.lineTo(1040, 445);
-    ctx.lineTo(VIEW_WIDTH, 412);
+    ctx.lineTo(0, 495);
+    ctx.lineTo(420, 472);
+    ctx.lineTo(840, 520);
+    ctx.lineTo(VIEW_WIDTH, 472);
     ctx.lineTo(VIEW_WIDTH, VIEW_HEIGHT);
     ctx.closePath();
     ctx.fill();
 
-    // Siluet Menara Kastil Kerajaan yang Disucikan (sekitar x = 920..1080)
-    ctx.fillStyle = lerpRGB([14, 15, 22], [38, 30, 36], sunProgress);
-    ctx.fillRect(940, 372, 110, 85);
-    ctx.fillRect(928, 344, 24, 110);
-    ctx.fillRect(1038, 348, 24, 108);
-    ctx.fillRect(980, 314, 30, 135);
-    // Atap Menara Runcing
-    const spires = [[940, 344, 16, 36], [995, 314, 20, 48], [1050, 348, 16, 34]];
-    for (const [sx, sy, sw, sh] of spires) {
-        ctx.beginPath();
-        ctx.moveTo(sx - sw, sy);
-        ctx.lineTo(sx, sy - sh);
-        ctx.lineTo(sx + sw, sy);
-        ctx.closePath();
-        ctx.fill();
-    }
-
-    // Tebing Depan tempat Sir Aldric berdiri menatap Fajar
-    ctx.fillStyle = '#121318';
+    // Benteng Kerajaan Cahaya Berdetail (Crenellations, Rose Window, Panji Berkibar, Gerbang)
+    const wave = Math.sin(endingCG.frame * 0.1) * 12;
+    ctx.fillStyle = '#181a24';
+    ctx.fillRect(72, 290, 210, 250);
+    ctx.fillRect(132, 170, 90, 130);
     ctx.beginPath();
-    ctx.moveTo(0, VIEW_HEIGHT);
-    ctx.lineTo(0, 504);
-    ctx.lineTo(395, 492);
-    ctx.lineTo(525, 562);
-    ctx.lineTo(665, VIEW_HEIGHT);
-    ctx.closePath();
+    ctx.moveTo(116, 170); ctx.lineTo(177, 94); ctx.lineTo(238, 170); ctx.closePath();
+    ctx.fill();
+    // Gigi Tembok Benteng
+    for (let bx = 72; bx <= 258; bx += 30) ctx.fillRect(bx, 272, 18, 22);
+    // Kaca Patri Mawar Emas
+    const cgRose = ctx.createRadialGradient(177, 226, 4, 177, 226, 26);
+    cgRose.addColorStop(0, '#fef08a');
+    cgRose.addColorStop(1, '#b45309');
+    ctx.fillStyle = cgRose;
+    ctx.beginPath();
+    ctx.arc(177, 226, 22, 0, Math.PI * 2);
+    ctx.fill();
+    // Panji Kerajaan Berkibar
+    ctx.fillStyle = '#b91c1c';
+    ctx.beginPath();
+    ctx.moveTo(106, 314); ctx.lineTo(134, 314); ctx.lineTo(134 + wave * 0.4, 384); ctx.lineTo(120 + wave * 0.4, 370); ctx.lineTo(106 + wave * 0.3, 384); ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#f8d274';
+    ctx.fillRect(118, 326, 4, 28); ctx.fillRect(111, 335, 18, 4);
+    // Gerbang Benteng Utuh
+    ctx.fillStyle = '#4a2c18';
+    ctx.beginPath();
+    ctx.roundRect(150, 444, 54, 96, [24, 24, 0, 0]);
     ctx.fill();
 
-    // Sir Aldric berdiri gagah dengan Zirah Penuh, Jubah Berkibar, & Excalibur Bercahaya
+    // Sir Aldric berdiri gagah dengan Zirah Penuh, Tabard Salib, Greathelm, & Greatsword Bercahaya
     ctx.save();
-    ctx.translate(295, 494);
-    const wave = Math.sin(endingCG.frame * 0.1) * 14;
-    // Jubah Merah berlapis
+    ctx.translate(455, 520);
     ctx.fillStyle = '#991b1b';
     ctx.beginPath();
     ctx.moveTo(-8, -76);
-    ctx.quadraticCurveTo(-82, -64 + wave * 0.5, -138, -26 + wave);
-    ctx.lineTo(-108, -6 + wave * 0.7);
+    ctx.quadraticCurveTo(-82, -62 + wave * 0.5, -138, -24 + wave);
+    ctx.lineTo(-106, -6 + wave * 0.7);
     ctx.quadraticCurveTo(-48, -26, -6, -34);
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = '#f6cc68';
+    ctx.strokeStyle = '#f8d274';
     ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(-136, -26 + wave);
-    ctx.lineTo(-108, -7 + wave * 0.7);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-136, -24 + wave); ctx.lineTo(-106, -7 + wave * 0.7); ctx.stroke();
 
-    // Kaki Greaves Baja
     ctx.fillStyle = '#475569';
     ctx.fillRect(-13, -32, 10, 32);
     ctx.fillRect(3, -32, 10, 32);
-    ctx.fillStyle = '#94a3b8';
-    ctx.fillRect(-12, -26, 8, 22);
-    ctx.fillRect(4, -26, 8, 22);
-
-    // Zirah Dada, Tabard Merah, & Salib Emas
     ctx.fillStyle = '#e2e8f0';
-    ctx.beginPath();
-    ctx.roundRect(-15, -78, 30, 48, 5);
-    ctx.fill();
-    ctx.fillStyle = '#7f1d1d';
-    ctx.fillRect(-6, -74, 12, 42);
-    ctx.fillStyle = '#f6cc68';
-    ctx.fillRect(-1.5, -70, 3, 24);
-    ctx.fillRect(-6, -62, 12, 3);
-    // Bahu Pauldron
-    ctx.fillStyle = '#f6cc68';
-    ctx.beginPath();
-    ctx.arc(-14, -72, 9, Math.PI * 0.8, Math.PI * 2.1);
-    ctx.arc(14, -72, 9, Math.PI * 0.9, Math.PI * 2.2);
-    ctx.fill();
-
-    // Greathelm Emas + Visor + Jambul Merah Berkibar
+    ctx.beginPath(); ctx.roundRect(-15, -78, 30, 48, 5); ctx.fill();
+    ctx.fillStyle = '#7f1d1d'; ctx.fillRect(-6, -74, 12, 42);
+    ctx.fillStyle = '#f8d274'; ctx.fillRect(-1.5, -70, 3, 24); ctx.fillRect(-6, -62, 12, 3);
     ctx.fillStyle = '#dc2626';
     ctx.beginPath();
-    ctx.moveTo(-4, -102);
-    ctx.quadraticCurveTo(-38, -114 + wave * 0.3, -58, -90 + wave * 0.4);
-    ctx.lineTo(-12, -88);
-    ctx.closePath();
+    ctx.moveTo(-4, -102); ctx.quadraticCurveTo(-36, -114 + wave * 0.3, -58, -90 + wave * 0.4); ctx.lineTo(-12, -88); ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = '#f6cc68';
-    ctx.beginPath();
-    ctx.roundRect(-12, -104, 24, 25, 6);
-    ctx.fill();
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(0, -94, 12, 5);
-    ctx.fillStyle = '#fef08a';
-    ctx.fillRect(3, -93, 8, 2.5);
-
-    // Excalibur Fajar tertancap di batu dengan aura emas menyala
-    const swGlow = ctx.createRadialGradient(34, -36, 4, 34, -36, 42);
-    swGlow.addColorStop(0, 'rgba(254, 240, 138, 0.52)');
-    swGlow.addColorStop(1, 'rgba(254, 240, 138, 0)');
-    ctx.fillStyle = swGlow;
-    ctx.beginPath();
-    ctx.arc(34, -36, 42, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#fffbeb';
-    ctx.fillRect(31, -56, 6, 56);
-    ctx.fillStyle = '#d9a03b';
-    ctx.fillRect(19, -60, 30, 6);
-    ctx.fillStyle = '#78350f';
-    ctx.fillRect(31.5, -74, 5, 14);
-    ctx.fillStyle = '#fde047';
-    ctx.beginPath();
-    ctx.arc(34, -76, 4.5, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillStyle = '#f8d274';
+    ctx.beginPath(); ctx.roundRect(-12, -104, 24, 25, 6); ctx.fill();
+    ctx.fillStyle = '#0f172a'; ctx.fillRect(0, -94, 12, 5);
+    ctx.fillStyle = '#fef08a'; ctx.fillRect(3, -93, 8, 2.5);
+    // Greatsword tertancap bercahaya
+    const sg = ctx.createRadialGradient(34, -34, 4, 34, -34, 42);
+    sg.addColorStop(0, 'rgba(254, 240, 138, 0.52)');
+    sg.addColorStop(1, 'rgba(254, 240, 138, 0)');
+    ctx.fillStyle = sg;
+    ctx.beginPath(); ctx.arc(34, -34, 42, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fffbeb'; ctx.fillRect(31, -56, 6, 56);
+    ctx.fillStyle = '#d69c35'; ctx.fillRect(18, -60, 32, 6);
+    ctx.fillStyle = '#78350f'; ctx.fillRect(31.5, -74, 5, 14);
     ctx.restore();
 
-    // Kawanan Merpati Putih terbang melintasi langit fajar
+    // Kawanan merpati putih & serbuk fajar
     ctx.strokeStyle = '#fffbeb';
     ctx.lineWidth = 2.4;
     for (const b of endingCG.birds) {
-        const flap = Math.sin(endingCG.frame * 0.22 + b.phase) * 7;
+        const fl = Math.sin(endingCG.frame * 0.22 + b.phase) * 7;
         ctx.beginPath();
-        ctx.moveTo(b.x - 10, b.y + flap);
+        ctx.moveTo(b.x - 10, b.y + fl);
         ctx.quadraticCurveTo(b.x - 4, b.y - 5, b.x, b.y);
-        ctx.quadraticCurveTo(b.x + 4, b.y - 5, b.x + 10, b.y + flap);
+        ctx.quadraticCurveTo(b.x + 4, b.y - 5, b.x + 10, b.y + fl);
         ctx.stroke();
-    }
-
-    // Serbuk Cahaya Emas naik ke angkasa
-    for (const em of endingCG.embers) {
-        ctx.fillStyle = `rgba(254, 240, 138, ${em.alpha})`;
-        ctx.beginPath();
-        ctx.arc(em.x, em.y, em.size, 0, Math.PI * 2);
-        ctx.fill();
     }
 }
