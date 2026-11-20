@@ -122,7 +122,7 @@ public class MainActivity extends AppCompatActivity {
         try {
             WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
             WindowInsetsControllerCompat controller =
-                    WindowInsetsControllerCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+                    WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
             if (controller != null) {
                 controller.hide(WindowInsetsCompat.Type.systemBars());
                 controller.setSystemBarsBehavior(
